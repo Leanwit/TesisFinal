@@ -9,18 +9,23 @@ class preprocesamientoController:
 
     def __init__(self,nombreArchivo):
             self.leerArchivo(nombreArchivo)
-
-
+            self.eliminarDuplicados()
 
     def leerArchivo(self,nombreArchivo):
         """ retorna una lista de urls limpios leidos de un archivo"""
         archivo = open(nombreArchivo,'rb')
         for unaLinea in archivo.readlines():
             url = self.limpiarUrl(unaLinea.split("\n")[0])
-
             self.crearDocumento(url)
             self.listaUrls.append(url)
 
+    def eliminarDuplicados(self):
+        """ Eliminacion de urls duplicados """
+        listaUrlsAux = []
+        for url in self.listaUrls:
+            if url not in listaUrlsAux:
+                listaUrlsAux.append(url)
+        self.listaUrls = listaUrlsAux
 
     def limpiarUrl(self,url):
         """ Metodo para limpiar la barra final de la url """
