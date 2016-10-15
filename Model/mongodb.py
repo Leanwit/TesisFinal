@@ -1,7 +1,6 @@
 import sys
 from pymongo import MongoClient
-from pattern.vector import Document
-from pattern.web import URL, plaintext
+
 
 
 class MongoDb:
@@ -13,36 +12,38 @@ class MongoDb:
         sys.setdefaultencoding('utf-8')
 
 
-
-    def crearDocumento(self,url):
+    def getDocumento(self,url):
         cursor = self.db.documento.find({"url": url})
-        if not cursor.count():
+        for documento in cursor:
+            return documento
 
-            contenido = self.descargarContenido(url)
-            self.insertarDocumento(url,contenido)
+
+    def crearDocumento(self,unDocumento):
+        cursor = self.db.documento.find({"url": unDocumento.name})
+        if not cursor.count():
+            result = self.db.documento.insert_one(
+                {
+                    "id": unDocumento.id,
+                    "url": unDocumento.name,
+                    "contenido": unDocumento.vector,
+
+                }
+            )
+            return result
         else:
             for documento in cursor:
                 try:
                     archivo = open("DocumentoPattern/"+str(documento['_id']))
                 except:
-                    self.db.documento.delete_many({"url": url})
-                    contenido = self.descargarContenido(url)
-                    self.insertarDocumento(url, contenido)
-                break
+                    self.db.documento.delete_many({"url": unDocumento.name})
+                    result = self.db.documento.insert_one(
+                        {
+                            "id": unDocumento.id,
+                            "url": unDocumento.name,
+                            "contenido": unDocumento.vector,
 
-    def descargarContenido(self,url):
-        unaUrl = URL(url).download()
-        return plaintext(unaUrl)
+                        }
+                    )
+                    return result
 
-    def insertarDocumento(self,url,contenido):
-        """ Crea registro en mongodb y un archivo Pattern Document"""
-        unDocumento = Document(contenido, name=url)
-        result = self.db.documento.insert_one(
-            {
-                "id": unDocumento.id,
-                "url": url,
-                "contenido": unDocumento.vector,
 
-            }
-        )
-        unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
