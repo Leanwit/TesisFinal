@@ -46,4 +46,40 @@ class MongoDb:
                     )
                     return result
 
+    def setearRelevancia(self,url,relevancia):
+        cursor = self.db.documento.find({"url": url})
+        if cursor.count():
+            for documento in cursor:
+                result = self.db.documento.update_one(
+                    {"url": documento['url']},
+                    {
+                        "$set": {
+                            "relevancia": relevancia
+                        },
+                        "$currentDate": {"lastModified": True}
+                    }
+                )
+        else:
+            print "No existe url - setear relevancia"
 
+    def getDocumentosConsulta(self,consulta):
+        cursor = self.db.documento.find({"relevancia.consulta":consulta})
+        return cursor
+
+    def setInformacionDocumento(self,url,titulo,urlValues,body):
+        cursor = self.db.documento.find({"url": url})
+        if cursor.count():
+            for documento in cursor:
+                result = self.db.documento.update_one(
+                    {"url": documento['url']},
+                    {
+                        "$set": {
+                            "titulo": titulo,
+                            "urlValues": urlValues,
+                            "body":body
+                        },
+                        "$currentDate": {"lastModified": True}
+                    }
+                )
+        else:
+            print "No existe url - setInformacionDocumento"
