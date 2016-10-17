@@ -1,9 +1,10 @@
 from Model.mongodb import *
 from pattern.vector import Document, PORTER
-from pattern.web import URL, plaintext, extension
+from pattern.web import URL, plaintext, extension,Element
 import urllib2
 import os
 import commands
+from pyPdf import PdfFileWriter, PdfFileReader
 
 
 class preprocesamientoController:
@@ -41,8 +42,47 @@ class preprocesamientoController:
     def crearDocumento(self,url):
         contenido = self.descargarContenido(url)
         if contenido:
-            self.insertarDocumento(url,contenido)
+            return self.insertarDocumento(url,contenido)
 
+    def crearDocumentoSVM(self,url):
+        ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
+        contenido = self.descargarContenido(url)
+
+        if contenido:
+            documento = self.insertarDocumento(url,contenido)
+            self.agregarInformacionDocumento(url)
+            return documento
+
+    def agregarInformacionDocumento(self,url):
+        try:
+            unaUrl = URL(url)
+            if not 'pdf' in extension(unaUrl.page):
+                html = unaUrl.download()
+                unElemento = Element(html)
+                body = self.getBody(unElemento)
+                urlValues = self.getUrlValues(unElemento)
+                titulo = self.getTitulo(unElemento)
+                self.mongoDb.setInformacionDocumento(url,titulo,urlValues,body)
+        except Exception as e:
+            print str(e)
+
+    def getBody(self,unElemento):
+        body = ""
+        for unBody in unElemento.by_tag('body'):
+            body += plaintext(unBody.source)
+        return body
+
+    def getUrlValues(self,unElemento):
+        urlValues = ""
+        for unValueUrl in unElemento('a:first-child'):
+            urlValues += plaintext(unValueUrl.content) + " - "
+        return urlValues
+
+    def getTitulo(self,unElemento):
+        titulo = ""
+        if unElemento.by_tag('title'):
+            titulo = unElemento.by_tag('title')[0].content
+        return titulo
 
     def descargarContenido(self,url):
         try:
@@ -87,16 +127,17 @@ class preprocesamientoController:
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
-
                 campos = unaLinea.split(" , ")
                 url = self.limpiarUrl(campos[0])
                 clase = campos[1]
 
-                self.crearDocumento(url)
-
+                documentoPattern = self.crearDocumentoSVM(url)
                 relevancia = {}
                 relevancia['consulta'] = consulta
                 relevancia['clase'] = clase
+                if documentoPattern:
+                    self.mongoDb.setearRelevancia(documentoPattern.name,relevancia)
+
 
 
 
