@@ -92,8 +92,19 @@ class MongoDb:
                     {"url": documento['url']},
                     {
                         "$set": {
-                            "atributos": atributo.atributos
+                            "atributosConsulta": atributo
                         },
                         "$currentDate": {"lastModified": True}
                     }
                 )
+
+    def setDocumentoAtributo(self,consulta,atributo,variable,valor):
+        result = self.db.documento.update_one(
+            {"url": atributo['url'],"atributosConsulta.consulta":consulta.name},
+            {
+                "$set": {
+                    "atributosConsulta.atributos."+variable: valor
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )

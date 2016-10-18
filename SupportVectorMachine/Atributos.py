@@ -1,4 +1,6 @@
 from pattern.vector import distance,COSINE
+from Model.mongodb import *
+mongodb = MongoDb()
 
 class Atributos:
 
@@ -144,22 +146,53 @@ class Atributos:
         else:
             return 0
 
-    def calcularAtributosCorpus(self,modelos, unaConsulta,listaAtributos):
+    def calcularAtributosCorpus(self,modelos, unaConsulta,listaDocumentos):
+
         for unModelo in modelos:
-            self.calcularAtributosCorpusSum(modelos[unModelo], unModelo, unaConsulta,listaAtributos)
-            #calcularAtributosCorpusMin(modelos[unModelo], unModelo, unaConsulta)
-            #calcularAtributosCorpusMax(modelos[unModelo], unModelo, unaConsulta)
-            #calcularAtributosCorpusProm(modelos[unModelo], unModelo, unaConsulta)
+            self.calcularAtributosCorpusSum(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
+            self.calcularAtributosCorpusMin(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
+            self.calcularAtributosCorpusMax(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
+            self.calcularAtributosCorpusProm(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
 
-        for doc in listaAtributos:
-            print doc.atributos
 
-    def calcularAtributosCorpusSum(self,modelo, atributo, consulta,listaAtributos):
+
+
+    def calcularAtributosCorpusSum(self,modelo, atributo, consulta,listaDocumentos):
         contador = 0
-        for unDocumento, unAtributo in zip(modelo, listaAtributos):
+        for indice, unDocumento in enumerate(modelo):
             for unaConsulta in consulta:
                 contador += unDocumento.tfidf(unaConsulta)
-            unAtributo.atributos['querySumTfidf'+self.getNameAtributo(atributo)] = contador
+            mongodb.setDocumentoAtributo(consulta,listaDocumentos[indice],'querySumTfidf'+self.getNameAtributo(atributo),contador)
+            #print 'querySumTfidf'+self.getNameAtributo(atributo) , " - " ,contador
+
+    def calcularAtributosCorpusMax(self, modelo, atributo, consulta, listaDocumentos):
+        for indice, unDocumento in enumerate(modelo):
+            contador = 0
+            for unaConsulta in consulta:
+                contadorAux = unDocumento.tfidf(unaConsulta)
+                if contador < contadorAux:
+                    contador = contadorAux
+            mongodb.setDocumentoAtributo(consulta,listaDocumentos[indice],'queryMaxTfidf'+self.getNameAtributo(atributo),contador)
+            #print 'queryMaxTfidf'+self.getNameAtributo(atributo) , " - " ,contador
+
+    def calcularAtributosCorpusMin(self, modelo, atributo, consulta, listaDocumentos):
+        for indice, unDocumento in enumerate(modelo):
+            contador = 100
+            for unaConsulta in consulta:
+                contadorAux = unDocumento.tfidf(unaConsulta)
+                if contador > contadorAux:
+                    contador = contadorAux
+            mongodb.setDocumentoAtributo(consulta,listaDocumentos[indice],'queryMinTfidf'+self.getNameAtributo(atributo),contador)
+            #print 'queryMinTfidf'+self.getNameAtributo(atributo) , " - " ,contador
+
+    def calcularAtributosCorpusProm(self, modelo, atributo, consulta, listaDocumentos):
+        for indice, unDocumento in enumerate(modelo):
+            contador = 0
+            for unaConsulta in consulta:
+                contador += unDocumento.tfidf(unaConsulta)
+            contador = contador / len(consulta)
+            mongodb.setDocumentoAtributo(consulta,listaDocumentos[indice],'queryPromTfidf'+self.getNameAtributo(atributo),contador)
+            #print 'queryPromTfidf' + self.getNameAtributo(atributo), " - ", contador
 
     def getNameAtributo(self,unAtributo):
         if "documento" in unAtributo:

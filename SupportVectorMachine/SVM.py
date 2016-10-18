@@ -17,7 +17,12 @@ class SVM:
         listaAtributos = []
         for documento in documentos:
             atributo = self.crearAtributosSingulares(documento,consulta)
-            self.mongodb.agregarDatosAtributos(documento, atributo)
+
+            atributosConsulta = {}
+            atributosConsulta['consulta'] = consulta
+            atributosConsulta['atributos'] = atributo.atributos
+
+            self.mongodb.agregarDatosAtributos(documento, atributosConsulta)
             listaAtributos.append(atributo)
 
         self.crearAtributosGrupales(listaAtributos,consulta)
@@ -66,8 +71,10 @@ class SVM:
         modelos['title'] = self.preprocesamiento.crearModelo(listaDocumentosTitle)
 
 
+        listaDocumentos = self.mongodb.getDocumentosConsulta(consulta)
+        consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
         unAtributo = Atributos()
-        unAtributo.calcularAtributosCorpus(modelos,consulta,listaAtributos)
+        unAtributo.calcularAtributosCorpus(modelos,consulta,listaDocumentos)
 
     def urlDocumento(self,unDocumentoPattern):
         '''Expresion regular para separar en una lista los fragmentos de la url'''
