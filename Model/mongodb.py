@@ -83,3 +83,17 @@ class MongoDb:
                 )
         else:
             print "No existe url - setInformacionDocumento"
+
+    def agregarDatosAtributos(self,documento,atributo):
+        cursor = self.db.documento.find({"url": documento['url']})
+        if cursor.count():
+            for documento in cursor:
+                result = self.db.documento.update_one(
+                    {"url": documento['url']},
+                    {
+                        "$set": {
+                            "atributos": atributo.atributos
+                        },
+                        "$currentDate": {"lastModified": True}
+                    }
+                )
