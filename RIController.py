@@ -1,5 +1,6 @@
+from SupportVectorMachine.SVM import *
 from preprocesamientoController import *
-from SVM import *
+
 
 class RIController:
     preprocesamiento = preprocesamientoController()
@@ -11,6 +12,7 @@ class RIController:
     def initSVM(self,path,consulta):
 
         self.preprocesamiento.lecturaSVM(path,consulta)
+
         self.svm.setearAtributos(consulta)
 
         '''X = getDocumentosAtributos('entrenamiento')

@@ -1,5 +1,5 @@
 from Model.mongodb import *
-from pattern.vector import Document, PORTER
+from pattern.vector import Document, PORTER, TFIDF, Model
 from pattern.web import URL, plaintext, extension,Element
 import urllib2
 import os
@@ -117,7 +117,7 @@ class preprocesamientoController:
 
     def insertarDocumento(self,url,contenido):
         """ Crea registro en mongodb y un archivo Pattern Document"""
-        unDocumento = Document(contenido, name=url,stopwords=False, stemming=PORTER)
+        unDocumento = Document(contenido, name=url,stopwords=False, stemming=PORTER,weigth=TFIDF)
         result = self.mongoDb.crearDocumento(unDocumento)
         if result:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
@@ -138,6 +138,8 @@ class preprocesamientoController:
                 if documentoPattern:
                     self.mongoDb.setearRelevancia(documentoPattern.name,relevancia)
 
+    def crearDocumentoPattern(self,contenido,name = ""):
+        return Document(contenido,name=name,stemmer=PORTER,stopwords=False,weigth=TFIDF)
 
-
-
+    def crearModelo(self,listaDocumentos):
+        return Model(listaDocumentos)
