@@ -47,29 +47,29 @@ class preprocesamientoController:
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
         contenido = self.descargarContenido(url)
-
+        contenido = contenido.replace("\n"," ")
         if contenido:
             documento = self.insertarDocumento(url,contenido)
-            self.agregarInformacionDocumento(url)
+            self.agregarInformacionDocumento(url,contenido)
             return documento
 
-    def agregarInformacionDocumento(self,url):
+    def agregarInformacionDocumento(self,url,contenido):
         try:
             unaUrl = URL(url)
             if not 'pdf' in extension(unaUrl.page):
-                html = unaUrl.download()
-                unElemento = Element(html)
+                html = contenido
+                unElemento = Element(unaUrl.download())
                 body = self.getBody(unElemento)
                 urlValues = self.getUrlValues(unElemento)
                 titulo = self.getTitulo(unElemento)
-                self.mongoDb.setInformacionDocumento(url,titulo,urlValues,body)
+                self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
         except Exception as e:
             print str(e)
 
     def getBody(self,unElemento):
         body = ""
         for unBody in unElemento.by_tag('body'):
-            body += plaintext(unBody.source)
+            body += unBody.source
         return body
 
     def getUrlValues(self,unElemento):
@@ -117,31 +117,37 @@ class preprocesamientoController:
 
     def insertarDocumento(self,url,contenido):
         """ Crea registro en mongodb y un archivo Pattern Document"""
-        unDocumento = Document(contenido, name=url,stopwords=False, stemming=PORTER,weigth=TFIDF)
+        unDocumento = Document(contenido, name=url,stopwords=True, stemming=PORTER,weigth=TFIDF)
         result = self.mongoDb.crearDocumento(unDocumento)
         if result:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
         return unDocumento
 
-    def lecturaSVM(self,path,consulta):
+    def lecturaSVM(self,path):
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
+
                 campos = unaLinea.split(" , ")
-                url = self.limpiarUrl(campos[0])
-                clase = campos[1]
+
+                consulta = campos[0]
+                url = self.limpiarUrl(campos[1])
+                clase = campos[2]
 
                 documentoPattern = self.crearDocumentoSVM(url)
-                relevancia = {}
-                relevancia['consulta'] = consulta
-                relevancia['clase'] = clase
-                if documentoPattern:
-                    self.mongoDb.setearRelevancia(documentoPattern.name,relevancia)
+                if consulta:
+                    consultaClase = {}
+                    consultaClase['consulta'] = consulta
+                    consultaClase['clase'] = clase
+                    if documentoPattern:
+                        self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
 
     def crearDocumentoPattern(self,contenido,name = ""):
-        return Document(contenido,name=name,stemmer=PORTER,stopwords=False,weigth=TFIDF)
+        return Document(contenido,name=name,stemmer=PORTER,stopwords=True,weigth=TFIDF)
 
     def crearModelo(self,listaDocumentos):
-        return Model(listaDocumentos)
+        return Model(listaDocumentos, weight=TFIDF)
+
+
 
 
