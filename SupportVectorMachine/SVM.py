@@ -3,13 +3,65 @@ from preprocesamientoController import *
 from pattern.vector import Document,Model
 from Atributos import *
 import re
+import numpy as np
+from sklearn import svm
+
 
 class SVM:
     mongodb = MongoDb()
     preprocesamiento = preprocesamientoController()
 
+    instanciaSVM = None
+
+    X = []
+    Y = []
+
+    xEntrenamiento = []
+    xTest = []
+
+    yEntrenamiento = []
+    yTest = []
+
+
     def __init__(self):
         pass
+
+
+    def ajustarParametros(self,c,kernel,entrenamiento,test,X=[],Y=[],gamma = 1):
+        self.X = np.array(X)
+        self.Y = np.array(Y)
+        self.definirConjuntos(entrenamiento,test)
+        self.instanciaSVM = svm.SVC(C=c, kernel=kernel, gamma=gamma)
+
+
+    def training(self):
+        self.instanciaSVM.fit(self.xEntrenamiento,self.yEntrenamiento)
+
+    def agregarDocumentosEntrenamiento(self,X,Y):
+        self.instanciaSVM.fit(np.array(X),np.array(Y))
+
+    def testing(self):
+        errores = 0
+        prediccion = self.predecir(self.xTest)
+        cantidadTotal = len(self.xTest)
+        for unaClase,unaPrediccion in zip(self.yTest,prediccion):
+            if unaClase != unaPrediccion:
+                errores +=1
+        aciertos = cantidadTotal - errores
+        return round((aciertos*100)/cantidadTotal,3)
+
+    def predecir(self,conjunto):
+        if len(conjunto):
+            if len(conjunto) == 1:
+                return self.instanciaSVM.predict(conjunto.reshape(1,-1))
+            else:
+                return self.instanciaSVM.predict(conjunto)
+
+    def definirConjuntos(self,cantEntrenamiento,cantTest):
+        self.xEntrenamiento = self.X[:int(cantEntrenamiento*len(self.X))]
+        self.xTest = self.X[int(cantTest*len(self.X))*int(-1):]
+        self.yEntrenamiento = self.Y[:int(cantEntrenamiento*len(self.Y))]
+        self.yTest = self.Y[int(cantTest*len(self.Y))*int(-1):]
 
 
     def setearAtributos(self,consulta):
@@ -62,14 +114,11 @@ class SVM:
             listaDocumentosUrlValues.append(unAtributo.urlValues)
             listaDocumentosTitle.append(unAtributo.titulo)
 
-
-
         modelos = {}
         modelos['documento'] = self.preprocesamiento.crearModelo(listaDocumentosHtml)
         modelos['body'] = self.preprocesamiento.crearModelo(listaDocumentosBody)
         modelos['urlValues'] = self.preprocesamiento.crearModelo(listaDocumentosUrlValues)
         modelos['title'] = self.preprocesamiento.crearModelo(listaDocumentosTitle)
-
 
         listaDocumentos = self.mongodb.getDocumentosConsulta(consulta)
         consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
@@ -86,20 +135,18 @@ class SVM:
                 listaPartes.append(x)
         return self.preprocesamiento.crearDocumentoPattern(listaPartes)
 
-'''
-    def crearAtributos(self,documento,consulta):
-        html = Document(unDocumento.html)
-        titulo = Document(unDocumento.titulo)
-        body = Document(unDocumento.body)
-        urlValues = Document(unDocumento.urlValues)
+    def obtenerAtributos(self,consulta):
+        listaDocumentos = self.mongodb.getDocumentosConsulta(consulta)
+        puntos = {}
+        X = []
+        Y = []
+        for doc in listaDocumentos:
+            aux = []
+            for atributo in doc['atributosConsulta']['atributos']:
+                aux.append(doc['atributosConsulta']['atributos'][atributo])
+            X.append(aux)
+            Y.append(doc['relevancia']['clase'])
 
-        unAtributo = Atributo(documento=unDocumento)
-        unAtributo.setQueryTermNumber(unDocumento, unaQuery.words, html.words, titulo.words, body.words,urlValues.words)
-        unAtributo.setQueryTermRatio(unDocumento, unaQuery.vector, html.vector, titulo.vector, body.vector,urlValues.vector)
-        unAtributo.setQuerySumTermFrequency(unDocumento, unaQuery, html, titulo, body, urlValues)
-        unAtributo.setQueryMinTermFrequency(unDocumento, unaQuery, html, titulo, body, urlValues)
-        unAtributo.setQueryMaxTermFrequency(unDocumento, unaQuery, html, titulo, body, urlValues)
-        unAtributo.setQueryVarianceTermFrequency(unDocumento, unaQuery, html, titulo, body, urlValues)
-        unAtributo.setQueryVectorSpaceModel(unDocumento, unaQuery.vector, html.vector, titulo.vector, body.vector,urlValues.vector)
-
-        return unAtributo'''
+        puntos['X'] = X
+        puntos['Y'] = Y
+        return puntos

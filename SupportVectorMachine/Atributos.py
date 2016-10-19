@@ -162,6 +162,7 @@ class Atributos:
         for indice, unDocumento in enumerate(modelo):
             for unaConsulta in consulta:
                 contador += unDocumento.tfidf(unaConsulta)
+
             mongodb.setDocumentoAtributo(consulta,listaDocumentos[indice],'querySumTfidf'+self.getNameAtributo(atributo),contador)
             #print 'querySumTfidf'+self.getNameAtributo(atributo) , " - " ,contador
 
