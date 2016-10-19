@@ -141,3 +141,22 @@ class MongoDb:
     def getDocumentosConConsulta(self):
         cursor = self.db.documento.find({'consultasClase':{'$exists': True}})
         return cursor
+
+    def obtenerTodasLasConsultas(self):
+        documentos = self.getDocumentosConConsulta()
+        listaConsultas = []
+        for doc in documentos:
+            for consultaClase in doc['consultasClase']:
+                consulta = consultaClase['consulta']
+                if not consulta in listaConsultas:
+                    listaConsultas.append(consulta)
+        return listaConsultas
+
+    def getAtributosPorConsulta(self, consulta):
+        listaAtributos = []
+        listaDocumentos = self.getDocumentosConConsulta()
+        for doc in listaDocumentos:
+            for consultaClase in doc['consultasClase']:
+                if consultaClase['consulta'] == consulta:
+                    listaAtributos.append(consultaClase['atributos'])
+        return listaAtributos
