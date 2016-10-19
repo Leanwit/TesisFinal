@@ -128,16 +128,18 @@ class preprocesamientoController:
             if unaLinea:
 
                 campos = unaLinea.split(" , ")
+
                 consulta = campos[0]
                 url = self.limpiarUrl(campos[1])
                 clase = campos[2]
 
                 documentoPattern = self.crearDocumentoSVM(url)
-                consultaClase = {}
-                consultaClase['consulta'] = consulta
-                consultaClase['clase'] = clase
-                if documentoPattern:
-                    self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
+                if consulta:
+                    consultaClase = {}
+                    consultaClase['consulta'] = consulta
+                    consultaClase['clase'] = clase
+                    if documentoPattern:
+                        self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
 
     def crearDocumentoPattern(self,contenido,name = ""):
         return Document(contenido,name=name,stemmer=PORTER,stopwords=False,weigth=TFIDF)
