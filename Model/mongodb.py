@@ -26,7 +26,6 @@ class MongoDb:
                     "id": unDocumento.id,
                     "url": unDocumento.name,
                     "contenido": unDocumento.vector,
-
                 }
             )
             return result
@@ -46,7 +45,7 @@ class MongoDb:
                     )
                     return result
 
-    def setearRelevancia(self,url,relevancia):
+    def setearRelevancia(self,url,documentoClase):
         cursor = self.db.documento.find({"url": url})
         if cursor.count():
             for documento in cursor:
@@ -54,7 +53,7 @@ class MongoDb:
                     {"url": documento['url']},
                     {
                         "$set": {
-                            "relevancia": relevancia
+                            "documentoClase": documentoClase
                         },
                         "$currentDate": {"lastModified": True}
                     }

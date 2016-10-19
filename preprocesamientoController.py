@@ -47,7 +47,6 @@ class preprocesamientoController:
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
         contenido = self.descargarContenido(url)
-
         if contenido:
             documento = self.insertarDocumento(url,contenido)
             self.agregarInformacionDocumento(url)
@@ -123,20 +122,22 @@ class preprocesamientoController:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
         return unDocumento
 
-    def lecturaSVM(self,path,consulta):
+    def lecturaSVM(self,path):
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
+
                 campos = unaLinea.split(" , ")
-                url = self.limpiarUrl(campos[0])
-                clase = campos[1]
+                consulta = campos[0]
+                url = self.limpiarUrl(campos[1])
+                clase = campos[2]
 
                 documentoPattern = self.crearDocumentoSVM(url)
-                relevancia = {}
-                relevancia['consulta'] = consulta
-                relevancia['clase'] = clase
+                documentoClase = {}
+                documentoClase['consulta'] = consulta
+                documentoClase['clase'] = clase
                 if documentoPattern:
-                    self.mongoDb.setearRelevancia(documentoPattern.name,relevancia)
+                    self.mongoDb.setearRelevancia(documentoPattern.name,documentoClase)
 
     def crearDocumentoPattern(self,contenido,name = ""):
         return Document(contenido,name=name,stemmer=PORTER,stopwords=False,weigth=TFIDF)

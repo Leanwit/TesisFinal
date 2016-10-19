@@ -10,12 +10,14 @@ class RIController:
     def __init__(self):
         pass
 
-    def initSVM(self,path,consulta):
+    def initSVM(self,path):
 
-        self.preprocesamiento.lecturaSVM(path,consulta)
-        self.svm.setearAtributos(consulta)
+        self.preprocesamiento.lecturaSVM(path)
+        #self.svm.setearAtributos(consulta)
+
         '''Diccionario con X e Y'''
-        puntos = self.svm.obtenerAtributos(consulta)
+
+        '''puntos = self.svm.obtenerAtributos(consulta)
         X = puntos['X']
         Y = puntos['Y']
 
@@ -48,7 +50,7 @@ class RIController:
                         print " ---------- "
             print "fin kernel " + kernel
 
-        '''precisionAnt = 0
+        precisionAnt = 0
         for gamma in rangoGamma:
             for C in rangoC:
 
