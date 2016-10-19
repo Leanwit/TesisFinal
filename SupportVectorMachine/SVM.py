@@ -109,24 +109,27 @@ class SVM:
         for consulta in consultas:
             listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))
             listaAtributos = self.mongodb.getAtributosPorConsulta(consulta)
-            
-            '''for unAtributo in listaAtributos:
-                listaDocumentosHtml.append(unAtributo.html)
-                listaDocumentosBody.append(unAtributo.body)
-                listaDocumentosUrlValues.append(unAtributo.urlValues)
-                listaDocumentosTitle.append(unAtributo.titulo)
-
-        modelos = {}
-        modelos['documento'] = self.preprocesamiento.crearModelo(listaDocumentosHtml)
-        modelos['body'] = self.preprocesamiento.crearModelo(listaDocumentosBody)
-        modelos['urlValues'] = self.preprocesamiento.crearModelo(listaDocumentosUrlValues)
-        modelos['title'] = self.preprocesamiento.crearModelo(listaDocumentosTitle)
+            listaDocumentos = []
+            for unAtributo in listaAtributos:
+                documento = self.mongodb.getDocumentoParam({'id':unAtributo['doc']})
+                listaDocumentosHtml.append(self.preprocesamiento.crearDocumentoPattern(documento['html']))
+                listaDocumentosBody.append(self.preprocesamiento.crearDocumentoPattern(documento['body']))
+                listaDocumentosUrlValues.append(self.preprocesamiento.crearDocumentoPattern(documento['urlValues']))
+                listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
+                listaDocumentos.append(documento)
 
 
-        listaDocumentos = self.mongodb.getDocumentosConsulta(consulta)
-        consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
-        unAtributo = Atributos()
-        unAtributo.calcularAtributosCorpus(modelos,consulta,listaDocumentos)'''
+
+
+            modelos = {}
+            modelos['documento'] = self.preprocesamiento.crearModelo(listaDocumentosHtml)
+            modelos['body'] = self.preprocesamiento.crearModelo(listaDocumentosBody)
+            modelos['urlValues'] = self.preprocesamiento.crearModelo(listaDocumentosUrlValues)
+            modelos['title'] = self.preprocesamiento.crearModelo(listaDocumentosTitle)
+
+            consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
+            unAtributo = Atributos()
+            unAtributo.calcularAtributosCorpus(modelos,consulta,listaDocumentos)
 
     def urlDocumento(self,unDocumentoPattern):
         '''Expresion regular para separar en una lista los fragmentos de la url'''

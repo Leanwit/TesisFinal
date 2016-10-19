@@ -63,7 +63,7 @@ class MongoDb:
         cursor = self.db.documento.find({"relevancia.consulta":consulta})
         return cursor
 
-    def setInformacionDocumento(self,url,titulo,urlValues,body):
+    def setInformacionDocumento(self,html,url,titulo,urlValues,body):
         cursor = self.db.documento.find({"url": url})
         if cursor.count():
             for documento in cursor:
@@ -71,6 +71,7 @@ class MongoDb:
                     {"url": documento['url']},
                     {
                         "$set": {
+                            "html":html,
                             "titulo": titulo,
                             "urlValues": urlValues,
                             "body":body
@@ -106,15 +107,22 @@ class MongoDb:
 
 
     def setDocumentoAtributo(self,consulta,atributo,variable,valor):
-        result = self.db.documento.update_one(
-            {"url": atributo['url'],"atributosConsulta.consulta":consulta.name},
-            {
-                "$set": {
-                    "atributosConsulta.atributos."+variable: valor
-                },
-                "$currentDate": {"lastModified": True}
-            }
-        )
+        cursor = self.db.documento.find({"url":atributo['url']})
+        for doc in cursor:
+            consultasClases = []
+            for consultaClase in doc['consultasClase']:
+                if consultaClase['consulta'] == consulta.name:
+                    consultaClase['atributos'][variable] = valor
+                consultasClases.append(consultaClase)
+            self.db.documento.update_one(
+                {"url": doc['url']},
+                {
+                    "$set": {
+                        "consultasClase": consultasClases
+                    },
+                    "$currentDate": {"lastModified": True}
+                }
+            )
 
     def agregarRelevancia(self, url, consultaClase):
             self.db.documento.update_one(
@@ -158,5 +166,14 @@ class MongoDb:
         for doc in listaDocumentos:
             for consultaClase in doc['consultasClase']:
                 if consultaClase['consulta'] == consulta:
-                    listaAtributos.append(consultaClase['atributos'])
+                    atributos = {}
+                    atributos['doc'] = doc['id']
+                    atributos['atributo'] = consultaClase['atributos']
+                    listaAtributos.append(atributos)
         return listaAtributos
+
+    def getDocumentoParam(self, param):
+        cursor = self.db.documento.find(param)
+        for doc in cursor:
+            return doc
+
