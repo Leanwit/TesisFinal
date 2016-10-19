@@ -13,7 +13,7 @@ class RIController:
     def initSVM(self,path):
 
         self.preprocesamiento.lecturaSVM(path)
-        #self.svm.setearAtributos(consulta)
+        self.svm.setearAtributos()
 
         '''Diccionario con X e Y'''
 

@@ -64,20 +64,16 @@ class SVM:
         self.yTest = self.Y[int(cantTest*len(self.Y))*int(-1):]
 
 
-    def setearAtributos(self,consulta):
-        documentos = self.mongodb.getDocumentosConsulta(consulta)
+    def setearAtributos(self):
+        documentos = self.mongodb.getDocumentosConConsulta()
         listaAtributos = []
         for documento in documentos:
-            atributo = self.crearAtributosSingulares(documento,consulta)
+            for consultaClase in documento['consultasClase']:
+                atributo = self.crearAtributosSingulares(documento,consultaClase['consulta'])
+                self.mongodb.agregarDatosAtributos(documento,consultaClase['consulta'],atributo)
+                listaAtributos.append(atributo)
 
-            atributosConsulta = {}
-            atributosConsulta['consulta'] = consulta
-            atributosConsulta['atributos'] = atributo.atributos
-
-            self.mongodb.agregarDatosAtributos(documento, atributosConsulta)
-            listaAtributos.append(atributo)
-
-        self.crearAtributosGrupales(listaAtributos,consulta)
+        '''self.crearAtributosGrupales(listaAtributos,consulta)'''
 
     def crearAtributosSingulares(self,documento,consulta):
         unDocumentoPattern = Document.load("DocumentoPattern/"+str(documento['_id']))
@@ -103,8 +99,8 @@ class SVM:
         consultaDocumento = self.preprocesamiento.crearDocumentoPattern(consulta, "consulta")
         unAtributo = Atributos(html,url,titulo,urlValues,body,consultaDocumento)
         unAtributo.calcularAtributos()
-
         return unAtributo
+
 
     def crearAtributosGrupales(self,listaAtributos,consulta):
         listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))

@@ -81,19 +81,29 @@ class MongoDb:
         else:
             print "No existe url - setInformacionDocumento"
 
-    def agregarDatosAtributos(self,documento,atributo):
+    def agregarDatosAtributos(self,documento,consulta,atributo):
         cursor = self.db.documento.find({"url": documento['url']})
         if cursor.count():
-            for documento in cursor:
-                result = self.db.documento.update_one(
+            for doc in cursor:
+                ''' preparacion de la variable para actualizar '''
+                consultasClases = []
+                for consultaClase in doc['consultasClase']:
+                    if consultaClase['consulta'] == consulta:
+                        consultaClase['atributos'] = atributo.atributos
+                    consultasClases.append(consultaClase)
+
+                '''actualizacion'''
+                self.db.documento.update_one(
                     {"url": documento['url']},
                     {
                         "$set": {
-                            "atributosConsulta": atributo
+                            "consultasClase": consultasClases
                         },
                         "$currentDate": {"lastModified": True}
                     }
                 )
+
+
 
     def setDocumentoAtributo(self,consulta,atributo,variable,valor):
         result = self.db.documento.update_one(
@@ -127,3 +137,7 @@ class MongoDb:
                 "$currentDate": {"lastModified": True}
             }
         )
+
+    def getDocumentosConConsulta(self):
+        cursor = self.db.documento.find({'consultasClase':{'$exists': True}})
+        return cursor
