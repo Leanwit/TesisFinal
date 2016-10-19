@@ -40,26 +40,24 @@ class MongoDb:
                             "id": unDocumento.id,
                             "url": unDocumento.name,
                             "contenido": unDocumento.vector,
+                            "consultasClase":[]
 
                         }
                     )
                     return result
 
-    def setearRelevancia(self,url,documentoClase):
-        cursor = self.db.documento.find({"url": url})
+    def setearRelevancia(self,url,consultaClase):
+        if not self.isExisteRelevancia(url,consultaClase):
+            self.crearRelevancia(url,consultaClase)
+
+
+
+    def isExisteRelevancia(self,url,consultaClase):
+        cursor = self.db.documento.find({"url":url,"consultasClase.consulta":consultaClase['consulta']})
         if cursor.count():
-            for documento in cursor:
-                result = self.db.documento.update_one(
-                    {"url": documento['url']},
-                    {
-                        "$set": {
-                            "documentoClase": documentoClase
-                        },
-                        "$currentDate": {"lastModified": True}
-                    }
-                )
+            return True
         else:
-            print "No existe url - setear relevancia"
+            return False
 
     def getDocumentosConsulta(self,consulta):
         cursor = self.db.documento.find({"relevancia.consulta":consulta})
@@ -103,6 +101,28 @@ class MongoDb:
             {
                 "$set": {
                     "atributosConsulta.atributos."+variable: valor
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )
+
+    def agregarRelevancia(self, url, consultaClase):
+            self.db.documento.update_one(
+                {"url": url},
+                {
+                    "$push": {
+                        "consultasClase": consultaClase
+                    },
+                    "$currentDate": {"lastModified": True}
+                }
+            )
+
+    def crearRelevancia(self, url, consultaClase):
+        self.db.documento.update_one(
+            {"url": url},
+            {
+                "$push": {
+                    "consultasClase": consultaClase
                 },
                 "$currentDate": {"lastModified": True}
             }

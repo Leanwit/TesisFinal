@@ -133,11 +133,11 @@ class preprocesamientoController:
                 clase = campos[2]
 
                 documentoPattern = self.crearDocumentoSVM(url)
-                documentoClase = {}
-                documentoClase['consulta'] = consulta
-                documentoClase['clase'] = clase
+                consultaClase = {}
+                consultaClase['consulta'] = consulta
+                consultaClase['clase'] = clase
                 if documentoPattern:
-                    self.mongoDb.setearRelevancia(documentoPattern.name,documentoClase)
+                    self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
 
     def crearDocumentoPattern(self,contenido,name = ""):
         return Document(contenido,name=name,stemmer=PORTER,stopwords=False,weigth=TFIDF)
