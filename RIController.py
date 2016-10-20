@@ -16,7 +16,6 @@ class RIController:
             self.predecirListaUrls(conjuntos)
 
     def initSVM(self,path):
-
         self.preprocesamiento.lecturaSVM(path)
         self.iniciarSVM(self.svmNoRelevante,"norelevante",1)
         self.iniciarSVM(self.svmRelevante,"relevante",2)
@@ -112,4 +111,42 @@ class RIController:
         joblib.dump(svm.instanciaSVM, 'Model/SVM/'+name+'.pkl')
         pass
 
+    def rankingSVM(self, path):
+        listaUrls = self.preprocesamiento.leerArchivoUrls(path)
+        self.preprocesamiento.lecturaSVM(path,'ranking')
+        self.svmRelevante.setearAtributosRanking(listaUrls)
+        puntos = self.svmRelevante.getAtributosRanking(listaUrls)
+
+        X = np.array(puntos['X'])
+        svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
+        svmRelevante = joblib.load('Model/SVM/relevante.pkl')
+        svmMuyrelevante = joblib.load('Model/SVM/muyrelevante.pkl')
+
+
+
+        prediccionesNoRelevante = svmNorelevante.predict(X)
+        prediccionesRelevante = svmRelevante.predict(X)
+        prediccionesMuyRelevante = svmMuyrelevante.predict(X)
+
+        print len(puntos['X']) , len(prediccionesNoRelevante),len(prediccionesRelevante),len(prediccionesMuyRelevante)
+        listaUrls = self.limpiarListaUrls(listaUrls,puntos['name'])
+        ranking = []
+        for indice , url in enumerate(listaUrls):
+            documento = {}
+            documento['url'] = url['url']
+            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 4)
+            ranking.append(documento)
+            #print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
+
+
+        listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
+        for doc in listaNueva:
+            print doc['score'] , doc['url']
+
+    def limpiarListaUrls(self, listaUrls, urlsX):
+        nuevaLista = []
+        for url in listaUrls:
+            if url['url'] in urlsX:
+                nuevaLista.append(url)
+        return nuevaLista
 

@@ -1,6 +1,6 @@
 import sys
 from pymongo import MongoClient
-
+from random import randint
 
 
 class MongoDb:
@@ -26,6 +26,7 @@ class MongoDb:
                     "id": unDocumento.id,
                     "url": unDocumento.name,
                     "contenido": unDocumento.vector,
+                    "rand": randint(1,100000),
                 }
             )
             return result
@@ -58,10 +59,6 @@ class MongoDb:
             return True
         else:
             return False
-
-    def getDocumentosConsulta(self,consulta):
-        cursor = self.db.documento.find({"relevancia.consulta":consulta})
-        return cursor
 
     def setInformacionDocumento(self,html,url,titulo,urlValues,body):
         cursor = self.db.documento.find({"url": url})
@@ -146,8 +143,11 @@ class MongoDb:
             }
         )
 
-    def getDocumentosConConsulta(self):
-        cursor = self.db.documento.find({'consultasClase':{'$exists': True}})
+    def getDocumentosConConsulta(self, orden = False):
+        if not orden:
+            cursor = self.db.documento.find({'consultasClase.clase':{'$exists': True}})
+        else:
+            cursor = self.db.documento.find({'consultasClase.clase':{'$exists': True}}).sort([("rand", 1)])
         return cursor
 
     def obtenerTodasLasConsultas(self):
@@ -162,7 +162,7 @@ class MongoDb:
 
     def getAtributosPorConsulta(self, consulta):
         listaAtributos = []
-        listaDocumentos = self.getDocumentosConConsulta()
+        listaDocumentos = self.getDocumentosConConsultaRanking()
         for doc in listaDocumentos:
             for consultaClase in doc['consultasClase']:
                 if consultaClase['consulta'] == consulta:
@@ -179,5 +179,11 @@ class MongoDb:
 
     def eliminarDocumentosSinContenido(self):
         self.db.documento.delete_many({"html":{"$exists":False}})
+
+    def getDocumentosConConsultaRanking(self):
+        cursor = self.db.documento.find({'consultasClase': {'$exists': True}})
+        return cursor
+
+
 
 

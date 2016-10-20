@@ -12,13 +12,14 @@ class Atributos:
     consulta = ""
     atributos = {}
 
-    def __init__(self,html="",url="",titulo="",urlValues="",body="",consulta=""):
+    def __init__(self,html="",url="",titulo="",urlValues="",body="",consulta="",pdf=""):
         self.html = html
         self.url = url
         self.titulo = titulo
         self.urlValues = urlValues
         self.body = body
         self.consulta = consulta
+        self.atributos['pdf'] = pdf
 
     def calcularAtributos(self):
         self.setQueryTermNumber()

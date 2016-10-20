@@ -49,12 +49,15 @@ class preprocesamientoController:
 
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
-        contenido = self.descargarContenido(url)
-
-        if contenido:
-            documento = self.insertarDocumento(url,contenido)
-            self.agregarInformacionDocumento(url,contenido)
-            return documento
+        doc = self.mongoDb.getDocumento(url)
+        if doc:
+            return self.getDocumentoPattern(doc['_id'])
+        else:
+            contenido = self.descargarContenido(url)
+            if contenido:
+                documento = self.insertarDocumento(url, contenido)
+                self.agregarInformacionDocumento(url, contenido)
+                return documento
 
     def agregarInformacionDocumento(self,url,contenido):
         try:
@@ -70,6 +73,12 @@ class preprocesamientoController:
                 body = self.verificarContenidoVacio(body)
                 urlValues = self.verificarContenidoVacio(urlValues)
                 titulo = self.verificarContenidoVacio(titulo)
+                self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
+            else:
+                html = self.verificarContenidoVacio(contenido)
+                body = ""
+                urlValues = ""
+                titulo = ""
                 self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
         except Exception as e:
             print str(e)
@@ -144,25 +153,35 @@ class preprocesamientoController:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
         return unDocumento
 
-    def lecturaSVM(self,path):
+    def lecturaSVM(self,path,type = "normal"):
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
                 campos = unaLinea.split(" , ")
-                if len(campos) > 2:
+                if type == "normal":
                     consulta = campos[0]
                     url = self.limpiarUrl(campos[1])
-                    clase = campos[2]
-
-                    if clase and url:
+                    if len(campos) > 2:
+                        clase = campos[2]
+                        if clase and url:
+                            documentoPattern = self.crearDocumentoSVM(url)
+                            if documentoPattern and consulta:
+                                consultaClase = {}
+                                consultaClase['consulta'] = consulta
+                                consultaClase['clase'] = clase
+                                if documentoPattern:
+                                    self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
+                else:
+                    consulta = campos[0]
+                    url = self.limpiarUrl(campos[1])
+                    doc = self.mongoDb.getDocumentoParam({"url":url,"consultasClases.consulta":consulta})
+                    if not doc and url:
                         documentoPattern = self.crearDocumentoSVM(url)
                         if documentoPattern and consulta:
                             consultaClase = {}
                             consultaClase['consulta'] = consulta
-                            consultaClase['clase'] = clase
                             if documentoPattern:
-                                self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
-
+                                self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
         self.mongoDb.eliminarDocumentosSinContenido()
 
 
@@ -177,6 +196,38 @@ class preprocesamientoController:
         if not param:
             param = ""
         return param
+
+    def leerArchivoUrls(self, path):
+        listaUrls = []
+        archivo = open(path, 'r').read()
+        for unaLinea in archivo.split("\n"):
+            if unaLinea:
+                unaUrl = {}
+                campos = unaLinea.split(" , ")
+                unaUrl['consulta'] = campos[0]
+                unaUrl['url'] = self.limpiarUrl(campos[1])
+                if len(campos) > 2:
+                    unaUrl['relevancia'] = campos[2]
+                listaUrls.append(unaUrl)
+        return listaUrls
+
+    def isPDF(self, param):
+        url = URL(param)
+        if "pdf" in extension(url.page):
+            return 1
+        else:
+            return 0
+
+    def getDocumentoPattern(self, id):
+        return Document("DocumentoPattern/" + str(id))
+
+    def obtenerVectorSpaceModel(self, url):
+        documento = self.mongoDb.getDocumento(url['url'])
+        if documento:
+            for consultasClase in documento['consultasClase']:
+                if consultasClase['consulta'] == url['consulta']:
+                    return consultasClase['atributos']['queryVectorSpaceModelDocumento']
+        return 1
 
 
 
