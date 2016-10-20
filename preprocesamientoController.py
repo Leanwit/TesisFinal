@@ -47,7 +47,7 @@ class preprocesamientoController:
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
         contenido = self.descargarContenido(url)
-        contenido = contenido.replace("\n"," ")
+
         if contenido:
             documento = self.insertarDocumento(url,contenido)
             self.agregarInformacionDocumento(url,contenido)
@@ -58,10 +58,15 @@ class preprocesamientoController:
             unaUrl = URL(url)
             if not 'pdf' in extension(unaUrl.page):
                 html = contenido
-                unElemento = Element(unaUrl.download())
+                unElemento = Element(self.descargarContenido(url))
                 body = self.getBody(unElemento)
                 urlValues = self.getUrlValues(unElemento)
                 titulo = self.getTitulo(unElemento)
+
+                html = self.verificarContenidoVacio(html)
+                body = self.verificarContenidoVacio(body)
+                urlValues = self.verificarContenidoVacio(urlValues)
+                titulo = self.verificarContenidoVacio(titulo)
                 self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
         except Exception as e:
             print str(e)
@@ -127,26 +132,35 @@ class preprocesamientoController:
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
-
                 campos = unaLinea.split(" , ")
+                if len(campos) > 2:
+                    consulta = campos[0]
+                    url = self.limpiarUrl(campos[1])
+                    clase = campos[2]
 
-                consulta = campos[0]
-                url = self.limpiarUrl(campos[1])
-                clase = campos[2]
+                    if clase and url:
+                        documentoPattern = self.crearDocumentoSVM(url)
+                        if documentoPattern and consulta:
+                            consultaClase = {}
+                            consultaClase['consulta'] = consulta
+                            consultaClase['clase'] = clase
+                            if documentoPattern:
+                                self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
 
-                documentoPattern = self.crearDocumentoSVM(url)
-                if consulta:
-                    consultaClase = {}
-                    consultaClase['consulta'] = consulta
-                    consultaClase['clase'] = clase
-                    if documentoPattern:
-                        self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
+        self.mongoDb.eliminarDocumentosSinContenido()
+
+
 
     def crearDocumentoPattern(self,contenido,name = ""):
         return Document(contenido,name=name,stemmer=PORTER,stopwords=True,weigth=TFIDF)
 
     def crearModelo(self,listaDocumentos):
         return Model(listaDocumentos, weight=TFIDF)
+
+    def verificarContenidoVacio(self, param):
+        if not param:
+            param = ""
+        return param
 
 
 

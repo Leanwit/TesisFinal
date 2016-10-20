@@ -177,3 +177,7 @@ class MongoDb:
         for doc in cursor:
             return doc
 
+    def eliminarDocumentosSinContenido(self):
+        self.db.documento.delete_many({"html":{"$exists":False}})
+
+

@@ -26,6 +26,9 @@ class SVM:
     def __init__(self):
         pass
 
+    def definirTestOptimo(self,c,kernel,gamma):
+        self.instanciaSVM = svm.SVC(C=c, kernel=kernel, gamma=gamma)
+
 
     def ajustarParametros(self,c,kernel,entrenamiento,test,X=[],Y=[],gamma = 1):
         self.X = np.array(X)
@@ -41,14 +44,13 @@ class SVM:
         self.instanciaSVM.fit(np.array(X),np.array(Y))
 
     def testing(self):
-        errores = 0
+        aciertos = 0
         prediccion = self.predecir(self.xTest)
         cantidadTotal = len(self.xTest)
         for unaClase,unaPrediccion in zip(self.yTest,prediccion):
-            if unaClase != unaPrediccion:
-                errores +=1
-        aciertos = cantidadTotal - errores
-        return round((aciertos*100)/cantidadTotal,3)
+            if unaClase == unaPrediccion:
+                aciertos +=1
+        return float(aciertos)/float(cantidadTotal)
 
     def predecir(self,conjunto):
         if len(conjunto):
@@ -112,11 +114,12 @@ class SVM:
             listaDocumentos = []
             for unAtributo in listaAtributos:
                 documento = self.mongodb.getDocumentoParam({'id':unAtributo['doc']})
-                listaDocumentosHtml.append(self.preprocesamiento.crearDocumentoPattern(documento['html']))
-                listaDocumentosBody.append(self.preprocesamiento.crearDocumentoPattern(documento['body']))
-                listaDocumentosUrlValues.append(self.preprocesamiento.crearDocumentoPattern(documento['urlValues']))
-                listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
-                listaDocumentos.append(documento)
+                if 'html' in documento:
+                    listaDocumentosHtml.append(self.preprocesamiento.crearDocumentoPattern(documento['html']))
+                    listaDocumentosBody.append(self.preprocesamiento.crearDocumentoPattern(documento['body']))
+                    listaDocumentosUrlValues.append(self.preprocesamiento.crearDocumentoPattern(documento['urlValues']))
+                    listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
+                    listaDocumentos.append(documento)
 
 
 
@@ -141,18 +144,33 @@ class SVM:
                 listaPartes.append(x)
         return self.preprocesamiento.crearDocumentoPattern(listaPartes)
 
-    def obtenerAtributos(self,consulta):
-        listaDocumentos = self.mongodb.getDocumentosConsulta(consulta)
+    def obtenerAtributos(self, relevancia):
+        listaDocumentos = self.mongodb.getDocumentosConConsulta()
         puntos = {}
         X = []
         Y = []
         for doc in listaDocumentos:
-            aux = []
-            for atributo in doc['atributosConsulta']['atributos']:
-                aux.append(doc['atributosConsulta']['atributos'][atributo])
-            X.append(aux)
-            Y.append(doc['relevancia']['clase'])
+            for consultaClase in doc['consultasClase']:
+                aux = []
+                for atributo in consultaClase['atributos']:
+                    aux.append(consultaClase['atributos'][atributo])
+                X.append(aux)
+
+                if relevancia > int(consultaClase['clase']):
+                    y = 0
+                else:
+                    y = 1
+
+                Y.append(y)
 
         puntos['X'] = X
         puntos['Y'] = Y
         return puntos
+
+    def dividirConjuntoTesting(self,puntos,cantEntrenamiento,cantTest):
+        conjuntos = {}
+        conjuntos['xEntrenamiento'] = puntos['X'][:int(cantEntrenamiento * len(puntos['X']))]
+        conjuntos['xTest'] = puntos['X'][int(cantTest * len(puntos['X'])) * int(-1):]
+        conjuntos['yEntrenamiento'] = puntos['Y'][:int(cantEntrenamiento * len(puntos['Y']))]
+        conjuntos['yTest'] = puntos['Y'][int(cantTest * len(puntos['Y'])) * int(-1):]
+        return conjuntos
