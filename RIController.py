@@ -112,4 +112,7 @@ class RIController:
         joblib.dump(svm.instanciaSVM, 'Model/SVM/'+name+'.pkl')
         pass
 
+    def rankingSVM(self, path):
+        pass
+
 
