@@ -1,6 +1,6 @@
 import sys
 from pymongo import MongoClient
-
+from random import randint
 
 
 class MongoDb:
@@ -26,6 +26,7 @@ class MongoDb:
                     "id": unDocumento.id,
                     "url": unDocumento.name,
                     "contenido": unDocumento.vector,
+                    "rand": randint(1,100000),
                 }
             )
             return result
@@ -142,8 +143,11 @@ class MongoDb:
             }
         )
 
-    def getDocumentosConConsulta(self):
-        cursor = self.db.documento.find({'consultasClase.clase':{'$exists': True}})
+    def getDocumentosConConsulta(self, orden = False):
+        if not orden:
+            cursor = self.db.documento.find({'consultasClase.clase':{'$exists': True}})
+        else:
+            cursor = self.db.documento.find({'consultasClase.clase':{'$exists': True}}).sort([("rand", 1)])
         return cursor
 
     def obtenerTodasLasConsultas(self):
@@ -179,5 +183,7 @@ class MongoDb:
     def getDocumentosConConsultaRanking(self):
         cursor = self.db.documento.find({'consultasClase': {'$exists': True}})
         return cursor
+
+
 
 

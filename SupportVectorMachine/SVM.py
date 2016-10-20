@@ -187,7 +187,10 @@ class SVM:
         return self.preprocesamiento.crearDocumentoPattern(listaPartes)
 
     def obtenerAtributos(self, relevancia):
-        listaDocumentos = self.mongodb.getDocumentosConConsulta()
+        listaDocumentos = self.mongodb.getDocumentosConConsulta(orden = True)
+
+
+
         puntos = {}
         X = []
         Y = []
@@ -202,7 +205,6 @@ class SVM:
                         y = 1
                     else:
                         y = 0
-                    print int(consultaClase['clase']),relevancia,y
                     Y.append(y)
 
         puntos['X'] = X
@@ -217,6 +219,12 @@ class SVM:
         conjuntos['yEntrenamiento'] = puntos['Y'][:int(cantEntrenamiento * len(puntos['Y']))]
         conjuntos['yTest'] = puntos['Y'][int(cantTest * len(puntos['Y'])) * int(-1):]
         return conjuntos
+
+    def desordenarLista(self,lista):
+        from random import shuffle
+        x = [[i] for i in lista]
+        shuffle(x)
+        return x
 
     def getAtributosRanking(self, listaUrls):
         X = []

@@ -129,7 +129,24 @@ class RIController:
         prediccionesMuyRelevante = svmMuyrelevante.predict(X)
 
         print len(puntos['X']) , len(prediccionesNoRelevante),len(prediccionesRelevante),len(prediccionesMuyRelevante)
+        listaUrls = self.limpiarListaUrls(listaUrls,puntos['name'])
+        ranking = []
+        for indice , url in enumerate(listaUrls):
+            documento = {}
+            documento['url'] = url['url']
+            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 4)
+            ranking.append(documento)
+            #print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
 
-        for url, prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante in zip(listaUrls,prediccionesNoRelevante,prediccionesRelevante,prediccionesMuyRelevante):
-            print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
+
+        listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
+        for doc in listaNueva:
+            print doc['score'] , doc['url']
+
+    def limpiarListaUrls(self, listaUrls, urlsX):
+        nuevaLista = []
+        for url in listaUrls:
+            if url['url'] in urlsX:
+                nuevaLista.append(url)
+        return nuevaLista
 

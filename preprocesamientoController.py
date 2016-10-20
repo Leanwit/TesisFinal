@@ -49,11 +49,15 @@ class preprocesamientoController:
 
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
-        contenido = self.descargarContenido(url)
-        if contenido:
-            documento = self.insertarDocumento(url,contenido)
-            self.agregarInformacionDocumento(url,contenido)
-            return documento
+        doc = self.mongoDb.getDocumento(url)
+        if doc:
+            return self.getDocumentoPattern(doc['_id'])
+        else:
+            contenido = self.descargarContenido(url)
+            if contenido:
+                documento = self.insertarDocumento(url, contenido)
+                self.agregarInformacionDocumento(url, contenido)
+                return documento
 
     def agregarInformacionDocumento(self,url,contenido):
         try:
@@ -171,7 +175,7 @@ class preprocesamientoController:
                     consulta = campos[0]
                     url = self.limpiarUrl(campos[1])
                     doc = self.mongoDb.getDocumentoParam({"url":url,"consultasClases.consulta":consulta})
-                    if doc and url:
+                    if not doc and url:
                         documentoPattern = self.crearDocumentoSVM(url)
                         if documentoPattern and consulta:
                             consultaClase = {}
@@ -213,6 +217,18 @@ class preprocesamientoController:
             return 1
         else:
             return 0
+
+    def getDocumentoPattern(self, id):
+        return Document("DocumentoPattern/" + str(id))
+
+    def obtenerVectorSpaceModel(self, url):
+        documento = self.mongoDb.getDocumento(url['url'])
+        if documento:
+            for consultasClase in documento['consultasClase']:
+                if consultasClase['consulta'] == url['consulta']:
+                    return consultasClase['atributos']['queryVectorSpaceModelDocumento']
+        return 1
+
 
 
 
