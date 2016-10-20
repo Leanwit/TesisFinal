@@ -156,11 +156,11 @@ class SVM:
                     aux.append(consultaClase['atributos'][atributo])
                 X.append(aux)
 
-                if relevancia > int(consultaClase['clase']):
-                    y = 0
-                else:
+                if int(consultaClase['clase']) > relevancia :
                     y = 1
-
+                else:
+                    y = 0
+                print int(consultaClase['clase']),relevancia,y
                 Y.append(y)
 
         puntos['X'] = X

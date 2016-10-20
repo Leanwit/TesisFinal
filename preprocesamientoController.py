@@ -25,6 +25,9 @@ class preprocesamientoController:
             self.crearDocumento(url)
             self.listaUrls.append(url)
 
+
+
+
     def eliminarDuplicados(self):
         """ Eliminacion de urls duplicados """
         listaUrlsAux = []
@@ -58,7 +61,7 @@ class preprocesamientoController:
             unaUrl = URL(url)
             if not 'pdf' in extension(unaUrl.page):
                 html = contenido
-                unElemento = Element(self.descargarContenido(url))
+                unElemento = Element(self.descargarContenidoHtml(url))
                 body = self.getBody(unElemento)
                 urlValues = self.getUrlValues(unElemento)
                 titulo = self.getTitulo(unElemento)
@@ -98,11 +101,24 @@ class preprocesamientoController:
                 return plaintext(unaUrl.download())
         except Exception as e:
             try:
-                return self.urlLibDescarga(url)
+                return plaintext(self.urlLibDescarga(url))
             except Exception as e:
                 print "except " + str(e)
                 print url
 
+    def descargarContenidoHtml(self,url):
+        try:
+            unaUrl = URL(url)
+            if "pdf" in extension(unaUrl.page):
+                return self.descargarPDF(unaUrl)
+            else:
+                return unaUrl.download()
+        except Exception as e:
+            try:
+                return self.urlLibDescarga(url)
+            except Exception as e:
+                print "except " + str(e)
+                print url
 
     def descargarPDF(self,url):
         document = open(os.path.dirname(os.path.abspath(__file__)) + '/temp.pdf', 'w')

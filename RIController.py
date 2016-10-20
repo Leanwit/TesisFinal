@@ -5,78 +5,22 @@ from sklearn.externals import joblib
 
 class RIController:
     preprocesamiento = preprocesamientoController()
-    svm = SVM()
-
+    svmNoRelevante = SVM()
+    svmRelevante = SVM()
+    svmMuyRelevante = SVM()
     def __init__(self):
         pass
 
-    def initSVM(self,path,load = False, valorRelevancia = 2):
-
-        self.preprocesamiento.lecturaSVM(path)
-        self.svm.setearAtributos()
-
-        '''Diccionario con X e Y'''
-
-        puntos = self.svm.obtenerAtributos(valorRelevancia)
-        conjuntos = self.svm.dividirConjuntoTesting(puntos,.8,.2)
-
-        X = conjuntos['xEntrenamiento']
-        Y = conjuntos['yEntrenamiento']
-
+    def clasificarSVM(self):
         if os.path.exists("Model/SVM/filename.pkl") and load:
             self.predecirListaUrls(conjuntos)
-        else:
 
-            inicio = 0.01
-            fin = 10
-            incremento = 1
+    def initSVM(self,path):
 
-            rangoC = np.arange(inicio, fin, incremento)
-            rangoGamma = np.arange(inicio, fin, incremento)
-            kernels = ['rbf','poly',"linear"]
-
-            mejorCombinacion = {}
-            mejorCombinacion['precision'] = 0
-            mejorCombinacion['C'] = inicio
-            mejorCombinacion['gamma'] = inicio
-            mejorCombinacion['kernel'] = kernels[0]
-
-
-            for kernel in kernels:
-                for gamma in rangoGamma:
-                    for C in rangoC:
-                        self.svm.ajustarParametros(C, kernel, .7,.3, X, Y, gamma=gamma)
-                        self.svm.training()
-                        precision = self.svm.testing()
-                        if precision > mejorCombinacion['precision']:
-                            mejorCombinacion['precision'] = precision
-                            mejorCombinacion['C'] = C
-                            mejorCombinacion['gamma'] = gamma
-                            mejorCombinacion['kernel'] = kernel
-                            print mejorCombinacion
-                            print " ---------- "
-                print "fin kernel " + kernel
-
-
-
-
-            X = conjuntos['xTest']
-            Y = conjuntos['yTest']
-            predicciones = self.svm.predecir(X)
-
-            print Y
-            print "Inicio Prediccion"
-            total = len(Y)
-            aciertos = 0
-            for prediccion, y in zip(predicciones,Y):
-                print prediccion, y
-                if prediccion == y:
-                    aciertos += 1
-
-            print float(aciertos)/float(total)
-
-
-            joblib.dump(self.svm.instanciaSVM, 'Model/SVM/filename.pkl')
+        self.preprocesamiento.lecturaSVM(path)
+        self.iniciarSVM(self.svmNoRelevante,"norelevante",1)
+        self.iniciarSVM(self.svmRelevante,"relevante",2)
+        self.iniciarSVM(self.svmMuyRelevante,"muyrelevante",4)
 
     def predecirListaUrls(self,puntos):
         svm = joblib.load('Model/SVM/filename.pkl')
@@ -97,3 +41,75 @@ class RIController:
 
         print float(aciertos) / float(total)
         pass
+
+    def inicializarParametrosIteracion(self):
+        parametros = {}
+
+        parametros['inicio'] = 1
+        parametros['fin'] = 10
+        parametros['incremento'] = 1
+
+        parametros['rangoC'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incremento'])
+        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incremento'])
+        parametros['kernels'] = ['rbf', 'poly', "linear"]
+
+        return parametros
+
+    def inicializarMejorCombinacion(self, parametros):
+
+        mejorCombinacion = {}
+        mejorCombinacion['precision'] = 0
+        mejorCombinacion['C'] = parametros['inicio']
+        mejorCombinacion['gamma'] = parametros['inicio']
+        mejorCombinacion['kernel'] = parametros['kernels'][0]
+        return mejorCombinacion
+
+    def entrenarSVM(self, svm, parametros, X, Y):
+
+        mejorCombinacion = self.inicializarMejorCombinacion(parametros)
+        for kernel in parametros['kernels']:
+            for gamma in parametros['rangoGamma']:
+                for C in parametros['rangoC']:
+                    svm.ajustarParametros(C, kernel, .8,.2, X, Y, gamma=gamma)
+                    svm.training()
+                    precision = svm.testing()
+                    if precision > mejorCombinacion['precision']:
+                        mejorCombinacion['precision'] = precision
+                        mejorCombinacion['C'] = C
+                        mejorCombinacion['gamma'] = gamma
+                        mejorCombinacion['kernel'] = kernel
+                        print mejorCombinacion
+                        print " ---------- "
+            print "fin kernel " + kernel
+
+    def predecir(self, svm, X, Y):
+        predicciones = svm.predecir(X)
+        print "Inicio Prediccion"
+        total = len(Y)
+        aciertos = 0
+        for prediccion, y in zip(predicciones, Y):
+            if prediccion == y:
+                aciertos += 1
+        print float(aciertos) / float(total)
+
+    def iniciarSVM(self,svm,name,limite):
+        svm.setearAtributos()
+
+        puntos = svm.obtenerAtributos(limite)
+        conjuntos = svm.dividirConjuntoTesting(puntos, .8, .2)
+
+        X = conjuntos['xEntrenamiento']
+        Y = conjuntos['yEntrenamiento']
+
+        parametros = self.inicializarParametrosIteracion()
+
+        self.entrenarSVM(svm,parametros, X, Y)
+
+        X = conjuntos['xTest']
+        Y = conjuntos['yTest']
+        self.predecir(svm,X, Y)
+
+        joblib.dump(svm.instanciaSVM, 'Model/SVM/'+name+'.pkl')
+        pass
+
+
