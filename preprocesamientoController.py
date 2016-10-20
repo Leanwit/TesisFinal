@@ -50,7 +50,6 @@ class preprocesamientoController:
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
         contenido = self.descargarContenido(url)
-
         if contenido:
             documento = self.insertarDocumento(url,contenido)
             self.agregarInformacionDocumento(url,contenido)
@@ -70,6 +69,12 @@ class preprocesamientoController:
                 body = self.verificarContenidoVacio(body)
                 urlValues = self.verificarContenidoVacio(urlValues)
                 titulo = self.verificarContenidoVacio(titulo)
+                self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
+            else:
+                html = self.verificarContenidoVacio(contenido)
+                body = ""
+                urlValues = ""
+                titulo = ""
                 self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
         except Exception as e:
             print str(e)
@@ -150,11 +155,10 @@ class preprocesamientoController:
             if unaLinea:
                 campos = unaLinea.split(" , ")
                 if type == "normal":
+                    consulta = campos[0]
+                    url = self.limpiarUrl(campos[1])
                     if len(campos) > 2:
-                        consulta = campos[0]
-                        url = self.limpiarUrl(campos[1])
                         clase = campos[2]
-
                         if clase and url:
                             documentoPattern = self.crearDocumentoSVM(url)
                             if documentoPattern and consulta:
@@ -166,7 +170,8 @@ class preprocesamientoController:
                 else:
                     consulta = campos[0]
                     url = self.limpiarUrl(campos[1])
-                    if url:
+                    doc = self.mongoDb.getDocumentoParam({"url":url,"consultasClases.consulta":consulta})
+                    if doc and url:
                         documentoPattern = self.crearDocumentoSVM(url)
                         if documentoPattern and consulta:
                             consultaClase = {}
