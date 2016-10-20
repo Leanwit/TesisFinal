@@ -207,5 +207,12 @@ class preprocesamientoController:
                 listaUrls.append(unaUrl)
         return listaUrls
 
+    def isPDF(self, param):
+        url = URL(param)
+        if "pdf" in extension(url.page):
+            return 1
+        else:
+            return 0
+
 
 

@@ -108,10 +108,11 @@ class SVM:
             urlValues = documento['urlValues']
         urlValues = self.preprocesamiento.crearDocumentoPattern(urlValues)
 
+        pdf = self.preprocesamiento.isPDF(documento['url'])
         url = self.urlDocumento(unDocumentoPattern)
 
         consultaDocumento = self.preprocesamiento.crearDocumentoPattern(consulta, "consulta")
-        unAtributo = Atributos(html,url,titulo,urlValues,body,consultaDocumento)
+        unAtributo = Atributos(html,url,titulo,urlValues,body,consultaDocumento,pdf)
         unAtributo.calcularAtributos()
         return unAtributo
 
