@@ -59,10 +59,6 @@ class MongoDb:
         else:
             return False
 
-    def getDocumentosConsulta(self,consulta):
-        cursor = self.db.documento.find({"relevancia.consulta":consulta})
-        return cursor
-
     def setInformacionDocumento(self,html,url,titulo,urlValues,body):
         cursor = self.db.documento.find({"url": url})
         if cursor.count():
@@ -147,7 +143,7 @@ class MongoDb:
         )
 
     def getDocumentosConConsulta(self):
-        cursor = self.db.documento.find({'consultasClase':{'$exists': True}})
+        cursor = self.db.documento.find({'consultasClase.clase':{'$exists': True}})
         return cursor
 
     def obtenerTodasLasConsultas(self):
@@ -162,7 +158,7 @@ class MongoDb:
 
     def getAtributosPorConsulta(self, consulta):
         listaAtributos = []
-        listaDocumentos = self.getDocumentosConConsulta()
+        listaDocumentos = self.getDocumentosConConsultaRanking()
         for doc in listaDocumentos:
             for consultaClase in doc['consultasClase']:
                 if consultaClase['consulta'] == consulta:
@@ -179,5 +175,9 @@ class MongoDb:
 
     def eliminarDocumentosSinContenido(self):
         self.db.documento.delete_many({"html":{"$exists":False}})
+
+    def getDocumentosConConsultaRanking(self):
+        cursor = self.db.documento.find({'consultasClase': {'$exists': True}})
+        return cursor
 
 

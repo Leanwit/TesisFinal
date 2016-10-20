@@ -77,6 +77,18 @@ class SVM:
 
         self.crearAtributosGrupales(listaAtributos)
 
+    def setearAtributosRanking(self,listaUrls):
+        listaAtributos = []
+        for url in listaUrls:
+            documento = self.mongodb.getDocumento(url['url'])
+            if documento:
+                for consultaClase in documento['consultasClase']:
+                    atributo = self.crearAtributosSingulares(documento,consultaClase['consulta'])
+                    self.mongodb.agregarDatosAtributos(documento,consultaClase['consulta'],atributo)
+                    listaAtributos.append(atributo)
+
+        self.crearAtributosGrupalesRanking(listaAtributos,listaUrls)
+
     def crearAtributosSingulares(self,documento,consulta):
         unDocumentoPattern = Document.load("DocumentoPattern/"+str(documento['_id']))
         html = unDocumentoPattern
@@ -105,8 +117,6 @@ class SVM:
 
 
     def crearAtributosGrupales(self,listaAtributos):
-
-
         consultas = self.mongodb.obtenerTodasLasConsultas()
         for consulta in consultas:
             listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))
@@ -121,6 +131,37 @@ class SVM:
                     listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
                     listaDocumentos.append(documento)
 
+
+
+
+            modelos = {}
+            modelos['documento'] = self.preprocesamiento.crearModelo(listaDocumentosHtml)
+            modelos['body'] = self.preprocesamiento.crearModelo(listaDocumentosBody)
+            modelos['urlValues'] = self.preprocesamiento.crearModelo(listaDocumentosUrlValues)
+            modelos['title'] = self.preprocesamiento.crearModelo(listaDocumentosTitle)
+
+            consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
+            unAtributo = Atributos()
+            unAtributo.calcularAtributosCorpus(modelos,consulta,listaDocumentos)
+
+    def crearAtributosGrupalesRanking(self,listaAtributos,listaUrls):
+        consultas = []
+        for url in listaUrls:
+            if url['consulta'] not in consultas:
+                consultas.append(url['consulta'])
+
+        for consulta in consultas:
+            listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))
+            listaAtributos = self.mongodb.getAtributosPorConsulta(consulta)
+            listaDocumentos = []
+            for unAtributo in listaAtributos:
+                documento = self.mongodb.getDocumentoParam({'id':unAtributo['doc']})
+                if 'html' in documento:
+                    listaDocumentosHtml.append(self.preprocesamiento.crearDocumentoPattern(documento['html']))
+                    listaDocumentosBody.append(self.preprocesamiento.crearDocumentoPattern(documento['body']))
+                    listaDocumentosUrlValues.append(self.preprocesamiento.crearDocumentoPattern(documento['urlValues']))
+                    listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
+                    listaDocumentos.append(documento)
 
 
 
@@ -151,21 +192,22 @@ class SVM:
         Y = []
         for doc in listaDocumentos:
             for consultaClase in doc['consultasClase']:
-                aux = []
-                for atributo in consultaClase['atributos']:
-                    aux.append(consultaClase['atributos'][atributo])
-                X.append(aux)
-
-                if int(consultaClase['clase']) > relevancia :
-                    y = 1
-                else:
-                    y = 0
-                print int(consultaClase['clase']),relevancia,y
-                Y.append(y)
+                if 'clase' in consultaClase:
+                    aux = []
+                    for atributo in consultaClase['atributos']:
+                        aux.append(consultaClase['atributos'][atributo])
+                    X.append(aux)
+                    if int(consultaClase['clase']) > relevancia :
+                        y = 1
+                    else:
+                        y = 0
+                    print int(consultaClase['clase']),relevancia,y
+                    Y.append(y)
 
         puntos['X'] = X
         puntos['Y'] = Y
         return puntos
+
 
     def dividirConjuntoTesting(self,puntos,cantEntrenamiento,cantTest):
         conjuntos = {}
@@ -174,3 +216,22 @@ class SVM:
         conjuntos['yEntrenamiento'] = puntos['Y'][:int(cantEntrenamiento * len(puntos['Y']))]
         conjuntos['yTest'] = puntos['Y'][int(cantTest * len(puntos['Y'])) * int(-1):]
         return conjuntos
+
+    def getAtributosRanking(self, listaUrls):
+        X = []
+        name = []
+        for url in listaUrls:
+            doc = self.mongodb.getDocumento(url['url'])
+            if doc:
+                for consultaClase in doc['consultasClase']:
+                    if consultaClase['consulta'] == url['consulta']:
+                        aux = []
+                        for atributo in consultaClase['atributos']:
+                            aux.append(consultaClase['atributos'][atributo])
+                        X.append(aux)
+                name.append(url['url'])
+
+        puntos = {}
+        puntos['X'] = X
+        puntos['name'] = name
+        return puntos

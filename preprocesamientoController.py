@@ -144,29 +144,35 @@ class preprocesamientoController:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
         return unDocumento
 
-    def lecturaSVM(self,path):
+    def lecturaSVM(self,path,type = "normal"):
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
                 campos = unaLinea.split(" , ")
-                if len(campos) > 2:
-                    consulta = campos[0]
-                    url = self.limpiarUrl(campos[1])
-                    clase = campos[2]
+                if type == "normal":
+                    if len(campos) > 2:
+                        consulta = campos[0]
+                        url = self.limpiarUrl(campos[1])
+                        clase = campos[2]
 
-                    if clase and url:
-                        documentoPattern = self.crearDocumentoSVM(url)
-                        if documentoPattern and consulta:
-                            consultaClase = {}
-                            consultaClase['consulta'] = consulta
-                            consultaClase['clase'] = clase
-                            if documentoPattern:
-                                self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
+                        if clase and url:
+                            documentoPattern = self.crearDocumentoSVM(url)
+                            if documentoPattern and consulta:
+                                consultaClase = {}
+                                consultaClase['consulta'] = consulta
+                                consultaClase['clase'] = clase
+                                if documentoPattern:
+                                    self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
                 else:
                     consulta = campos[0]
                     url = self.limpiarUrl(campos[1])
                     if url:
                         documentoPattern = self.crearDocumentoSVM(url)
+                        if documentoPattern and consulta:
+                            consultaClase = {}
+                            consultaClase['consulta'] = consulta
+                            if documentoPattern:
+                                self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
         self.mongoDb.eliminarDocumentosSinContenido()
 
 

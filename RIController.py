@@ -114,5 +114,23 @@ class RIController:
 
     def rankingSVM(self, path):
         listaUrls = self.preprocesamiento.leerArchivoUrls(path)
-        self.preprocesamiento.lecturaSVM(path)
+        self.preprocesamiento.lecturaSVM(path,'ranking')
+        self.svmRelevante.setearAtributosRanking(listaUrls)
+        puntos = self.svmRelevante.getAtributosRanking(listaUrls)
+
+        X = np.array(puntos['X'])
+        svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
+        svmRelevante = joblib.load('Model/SVM/relevante.pkl')
+        svmMuyrelevante = joblib.load('Model/SVM/muyrelevante.pkl')
+
+
+
+        prediccionesNoRelevante = svmNorelevante.predict(X)
+        prediccionesRelevante = svmRelevante.predict(X)
+        prediccionesMuyRelevante = svmMuyrelevante.predict(X)
+
+        print len(puntos['X']) , len(prediccionesNoRelevante),len(prediccionesRelevante),len(prediccionesMuyRelevante)
+
+        for url, prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante in zip(listaUrls,prediccionesNoRelevante,prediccionesRelevante,prediccionesMuyRelevante):
+            print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
 
