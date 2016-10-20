@@ -16,7 +16,6 @@ class RIController:
             self.predecirListaUrls(conjuntos)
 
     def initSVM(self,path):
-
         self.preprocesamiento.lecturaSVM(path)
         self.iniciarSVM(self.svmNoRelevante,"norelevante",1)
         self.iniciarSVM(self.svmRelevante,"relevante",2)
