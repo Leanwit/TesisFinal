@@ -162,7 +162,11 @@ class preprocesamientoController:
                             consultaClase['clase'] = clase
                             if documentoPattern:
                                 self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
-
+                else:
+                    consulta = campos[0]
+                    url = self.limpiarUrl(campos[1])
+                    if url:
+                        documentoPattern = self.crearDocumentoSVM(url)
         self.mongoDb.eliminarDocumentosSinContenido()
 
 
@@ -178,6 +182,19 @@ class preprocesamientoController:
             param = ""
         return param
 
+    def leerArchivoUrls(self, path):
+        listaUrls = []
+        archivo = open(path, 'r').read()
+        for unaLinea in archivo.split("\n"):
+            if unaLinea:
+                unaUrl = {}
+                campos = unaLinea.split(" , ")
+                unaUrl['consulta'] = campos[0]
+                unaUrl['url'] = self.limpiarUrl(campos[1])
+                if len(campos) > 2:
+                    unaUrl['relevancia'] = campos[2]
+                listaUrls.append(unaUrl)
+        return listaUrls
 
 
 

@@ -113,6 +113,6 @@ class RIController:
         pass
 
     def rankingSVM(self, path):
-        pass
-
+        listaUrls = self.preprocesamiento.leerArchivoUrls(path)
+        self.preprocesamiento.lecturaSVM(path)
 
