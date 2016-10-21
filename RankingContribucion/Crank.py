@@ -10,7 +10,9 @@ class Crank:
             if unaLinea:
                 unaLinea = unaLinea.split("\n")[0]
                 if unaLinea:
-                    listaUrls.append(self.limpiarLineaCrank(unaLinea))
+                    lineaLimpia = self.limpiarLineaCrank(unaLinea)
+                    if lineaLimpia['source']:
+                        listaUrls.append(self.limpiarLineaCrank(unaLinea))
         return listaUrls
 
     def limpiarLineaCrank(self,linea):
