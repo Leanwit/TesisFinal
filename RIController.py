@@ -1,4 +1,5 @@
 from SupportVectorMachine.SVM import *
+from RankingContribucion.Crank import *
 from preprocesamientoController import *
 import numpy as np
 from sklearn.externals import joblib
@@ -11,6 +12,7 @@ class RIController:
     svmMuyRelevante = SVM()
     isRelevante = 2
     mongodb = MongoDb()
+    crank = Crank()
 
     def __init__(self):
         pass
@@ -237,3 +239,25 @@ class RIController:
             fmeasure = self.fmeasure(recall,precision)
             precisionPromedio = self.precisionPromedio(top,listaRelevancia)
             print precision,recall,fmeasure,precisionPromedio
+
+
+    def crearRelacionesCRank(self,path):
+        listaUrls = self.crank.lecturaArchivoCrank(path)
+        for parUrls in listaUrls:
+            self.crearDocumentosCrank(parUrls['source'],parUrls['target'])
+            self.mongodb.crearRelaciones(parUrls['source'],parUrls['target'])
+
+    def crearDocumentosCrank(self, source, target):
+        documento = self.mongodb.getDocumento(source)
+        if not documento:
+            self.preprocesamiento.crearDocumento(source)
+        documento = self.mongodb.getDocumento(target)
+        if not documento:
+            self.preprocesamiento.crearDocumento(target)
+
+    def initCrank(self, path):
+        self.crearRelacionesCRank(path)
+
+
+
+

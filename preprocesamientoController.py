@@ -45,7 +45,9 @@ class preprocesamientoController:
     def crearDocumento(self,url):
         contenido = self.descargarContenido(url)
         if contenido:
-            return self.insertarDocumento(url,contenido)
+            documento = self.insertarDocumento(url,contenido)
+            self.agregarInformacionDocumento(url, contenido)
+            return documento
 
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
