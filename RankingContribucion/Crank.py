@@ -61,3 +61,34 @@ class Crank:
         else:
             puntajeFinal = 0
         return puntajeFinal
+
+    def calcularRelevanciaCrank(self,consulta):
+        consultaDocumento = self.preprocesamiento.crearDocumentoPattern(consulta,"consulta")
+        listaDocumentos = self.mongodb.getDocumentos()
+        listaDocumentosPattern = []
+        for doc in listaDocumentos:
+            documentoPattern = self.preprocesamiento.getDocumentoPattern(doc['_id'])
+            listaDocumentosPattern.append(documentoPattern)
+        modelo = self.preprocesamiento.crearModelo(listaDocumentosPattern)
+
+        listaDocumentos = self.mongodb.getDocumentos()
+        for doc in listaDocumentos:
+            doc = self.preprocesamiento.getDocumentoPattern(doc['_id'])
+            scoreRelevance = 0
+            var_coord = self.coord(doc, consultaDocumento)
+            for unTermino in consultaDocumento:
+                scoreRelevance += doc.tfidf(unTermino) * self.norm(doc, unTermino) * var_coord
+            self.mongodb.setearRelevanciaCrank(doc.name,scoreRelevance)
+
+    def coord(self, documento, consulta):
+        contador = 0
+        for word in consulta:
+            if word in documento.words:
+                contador += 1
+        return (float(contador) / float(len(consulta)))
+
+    def norm(self, documento, un_termino):
+        valor = 0
+        if un_termino in documento.words:
+            valor = documento.tf(un_termino)
+        return valor
