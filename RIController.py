@@ -120,13 +120,11 @@ class RIController:
         self.preprocesamiento.lecturaSVM(path,'ranking')
         self.svmRelevante.setearAtributosRanking(listaUrls)
         puntos = self.svmRelevante.getAtributosRanking(listaUrls)
-
         X = np.array(puntos['X'])
+
         svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
         svmRelevante = joblib.load('Model/SVM/relevante.pkl')
         svmMuyrelevante = joblib.load('Model/SVM/muyrelevante.pkl')
-
-
 
         prediccionesNoRelevante = svmNorelevante.predict(X)
         prediccionesRelevante = svmRelevante.predict(X)
@@ -144,11 +142,9 @@ class RIController:
             #print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
 
 
-        archivo = open("Salida/svm.txt","wb")
         listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
-        for doc in listaNueva:
-            archivo.write(doc['url']+" , "+str(doc['score'])+"\n")
-        archivo.close()
+        self.escribirRanking("Salida/svm.txt",listaNueva)
+        self.metricasEvaluacion(listaNueva)
 
 
 
@@ -163,12 +159,11 @@ class RIController:
 
     def recall(self,top = 10, listaDocumentos = [],cantidadDocRelevantes = 0):
         relevante = 0
-
         for unDocumento in listaDocumentos[:top]:
-            if int(unDocumento['relevance']) > self.isRelevante:
+            if int(unDocumento['relevancia']) > self.isRelevante:
                 relevante += 1
         if cantidadDocRelevantes != 0:
-            recall = str(relevante/cantidadDocRelevantes)
+            recall = str(float(relevante)/float(cantidadDocRelevantes))
         else:
             recall = 0
         return recall
@@ -176,16 +171,16 @@ class RIController:
     def precision(self, top=10, listaDocumentos = []):
         cantRelevantes = 0
         for unDocumento in listaDocumentos[:top]:
-            if int(unDocumento['relevance']) > self.isRelevante:
+            if int(unDocumento['relevancia']) > self.isRelevante:
                 cantRelevantes += 1
-        precision = cantRelevantes/top
+        precision = float(cantRelevantes)/float(top)
         return precision
 
     def fmeasure(self,recall,precision):
         recall = float(recall)
         precision = float(precision)
         if recall + precision != 0:
-            fmeasure = 2 * ((recall * precision) / (recall + precision))
+            fmeasure = 2 * (float(recall * precision) / float(recall + precision))
         else:
             fmeasure = 0
         return fmeasure
@@ -193,16 +188,52 @@ class RIController:
     def calcularCantidadDocumentosRelevantes(self,listaDocumentos = []):
         cantidadDocRelevantes  = 0
         for unDocumento in listaDocumentos:
-            if int(unDocumento['relevance']) > self.isRelevante:
+            if int(unDocumento['relevancia']) > self.isRelevante:
                 cantidadDocRelevantes +=1
         return cantidadDocRelevantes
 
     def precisionPromedio(self,top = 10,listaDocumentos = []):
         total,cant = [0,0]
-        for indice , unDocumento in enumerate(listaDocumentos[:top]):
-            if int(unDocumento['relevance']) > self.isRelevante:
-                total += self.precision(indice + 1)
+        listaAux = listaDocumentos
+        for indice , unDocumento in enumerate(listaAux[:top]):
+            if int(unDocumento['relevancia']) > self.isRelevante:
+                total += self.precision(indice + 1,listaDocumentos)
                 cant += 1
         if cant == 0:
             return 0
         return str(total/cant)
+
+    def crearListaConRelevancia(self,path):
+        archivo = open(path,"r")
+        for unaLinea in archivo.readlines():
+            if unaLinea:
+                campos = unaLinea.split("	,	")
+                url = self.preprocesamiento.limpiarUrl(campos[0])
+                relevancia = campos[1].split("\n")[0]
+                self.mongodb.crearDocumentoRelevancia(url,relevancia)
+
+    def escribirRanking(self, path, lista):
+        archivo = open(path, "wb")
+        for doc in lista:
+            archivo.write(doc['url'] + " , " + str(doc['score']) + "\n")
+        archivo.close()
+        pass
+
+    def metricasEvaluacion(self, listaNueva):
+        listaRelevancia = []
+        for doc in listaNueva:
+            documento = self.mongodb.getDocumentosRelevancia(doc['url'])
+            if documento:
+                documentoAux = {}
+                documentoAux['url'] = documento['url']
+                documentoAux['relevancia'] = documento['relevancia']
+                listaRelevancia.append(documentoAux)
+
+        cantidadRelevantes = self.calcularCantidadDocumentosRelevantes(listaRelevancia)
+        print cantidadRelevantes
+        for top in range(1,30):
+            precision = self.precision(top,listaRelevancia)
+            recall = self.recall(top,listaRelevancia,cantidadRelevantes)
+            fmeasure = self.fmeasure(recall,precision)
+            precisionPromedio = self.precisionPromedio(top,listaRelevancia)
+            print precision,recall,fmeasure,precisionPromedio

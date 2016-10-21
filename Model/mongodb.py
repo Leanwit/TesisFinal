@@ -184,6 +184,15 @@ class MongoDb:
         cursor = self.db.documento.find({'consultasClase': {'$exists': True}})
         return cursor
 
+    def crearDocumentoRelevancia(self,url,relevancia):
+        self.db.relevancia.insert_one(
+            {
+                "url":url,
+                "relevancia":relevancia,
+            }
+        )
 
-
+    def getDocumentosRelevancia(self, url):
+        cursor = self.db.relevancia.find({"url":url})
+        return cursor[0]
 

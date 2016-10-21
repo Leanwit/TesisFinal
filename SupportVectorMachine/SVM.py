@@ -233,12 +233,16 @@ class SVM:
             doc = self.mongodb.getDocumento(url['url'])
             if doc:
                 for consultaClase in doc['consultasClase']:
+                    print consultaClase
                     if consultaClase['consulta'] == url['consulta']:
                         aux = []
                         for atributo in consultaClase['atributos']:
                             aux.append(consultaClase['atributos'][atributo])
-                        X.append(aux)
-                name.append(url['url'])
+                        if aux:
+                            X.append(aux)
+                            name.append(url['url'])
+                        else:
+                            print "Sin Atributos" + url['url']
 
         puntos = {}
         puntos['X'] = X

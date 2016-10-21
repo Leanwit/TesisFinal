@@ -49,15 +49,12 @@ class preprocesamientoController:
 
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
-        doc = self.mongoDb.getDocumento(url)
-        if doc:
-            return self.getDocumentoPattern(doc['_id'])
-        else:
-            contenido = self.descargarContenido(url)
-            if contenido:
-                documento = self.insertarDocumento(url, contenido)
-                self.agregarInformacionDocumento(url, contenido)
-                return documento
+
+        contenido = self.descargarContenido(url)
+        if contenido:
+            documento = self.insertarDocumento(url, contenido)
+            self.agregarInformacionDocumento(url, contenido)
+            return documento
 
     def agregarInformacionDocumento(self,url,contenido):
         try:
@@ -175,13 +172,12 @@ class preprocesamientoController:
                     consulta = campos[0]
                     url = self.limpiarUrl(campos[1])
                     doc = self.mongoDb.getDocumentoParam({"url":url,"consultasClases.consulta":consulta})
-                    if not doc and url:
+                    if not doc:
                         documentoPattern = self.crearDocumentoSVM(url)
-                        if documentoPattern and consulta:
-                            consultaClase = {}
-                            consultaClase['consulta'] = consulta
-                            if documentoPattern:
-                                self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
+                        consultaClase = {}
+                        consultaClase['consulta'] = consulta
+                        if documentoPattern:
+                            self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
         self.mongoDb.eliminarDocumentosSinContenido()
 
 
