@@ -2,12 +2,16 @@ from SupportVectorMachine.SVM import *
 from preprocesamientoController import *
 import numpy as np
 from sklearn.externals import joblib
+from Model.mongodb import *
 
 class RIController:
     preprocesamiento = preprocesamientoController()
     svmNoRelevante = SVM()
     svmRelevante = SVM()
     svmMuyRelevante = SVM()
+    isRelevante = 2
+    mongodb = MongoDb()
+
     def __init__(self):
         pass
 
@@ -128,25 +132,77 @@ class RIController:
         prediccionesRelevante = svmRelevante.predict(X)
         prediccionesMuyRelevante = svmMuyrelevante.predict(X)
 
-        print len(puntos['X']) , len(prediccionesNoRelevante),len(prediccionesRelevante),len(prediccionesMuyRelevante)
+        #print len(puntos['X']) , len(prediccionesNoRelevante),len(prediccionesRelevante),len(prediccionesMuyRelevante)
+
         listaUrls = self.limpiarListaUrls(listaUrls,puntos['name'])
         ranking = []
         for indice , url in enumerate(listaUrls):
             documento = {}
             documento['url'] = url['url']
-            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 4)
+            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 3)
             ranking.append(documento)
             #print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
 
 
+        archivo = open("Salida/svm.txt","wb")
         listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
         for doc in listaNueva:
-            print doc['score'] , doc['url']
+            archivo.write(doc['url']+" , "+str(doc['score'])+"\n")
+        archivo.close()
+
+
 
     def limpiarListaUrls(self, listaUrls, urlsX):
+        """limpiar lista de urls que no lograron descargarse"""
         nuevaLista = []
         for url in listaUrls:
             if url['url'] in urlsX:
                 nuevaLista.append(url)
         return nuevaLista
 
+
+    def recall(self,top = 10, listaDocumentos = [],cantidadDocRelevantes = 0):
+        relevante = 0
+
+        for unDocumento in listaDocumentos[:top]:
+            if int(unDocumento['relevance']) > self.isRelevante:
+                relevante += 1
+        if cantidadDocRelevantes != 0:
+            recall = str(relevante/cantidadDocRelevantes)
+        else:
+            recall = 0
+        return recall
+
+    def precision(self, top=10, listaDocumentos = []):
+        cantRelevantes = 0
+        for unDocumento in listaDocumentos[:top]:
+            if int(unDocumento['relevance']) > self.isRelevante:
+                cantRelevantes += 1
+        precision = cantRelevantes/top
+        return precision
+
+    def fmeasure(self,recall,precision):
+        recall = float(recall)
+        precision = float(precision)
+        if recall + precision != 0:
+            fmeasure = 2 * ((recall * precision) / (recall + precision))
+        else:
+            fmeasure = 0
+        return fmeasure
+
+    def calcularCantidadDocumentosRelevantes(self,listaDocumentos = []):
+        cantidadDocRelevantes  = 0
+        for unDocumento in listaDocumentos:
+            if int(unDocumento['relevance']) > self.isRelevante:
+                cantidadDocRelevantes +=1
+        return cantidadDocRelevantes
+
+    def precisionPromedio(self,top = 10,listaDocumentos = []):
+        total,cant = [0,0]
+        for indice , unDocumento in enumerate(listaDocumentos[:top]):
+            if int(unDocumento['relevance']) > self.isRelevante:
+                total += self.precision(indice + 1)
+                cant += 1
+        if cant == 0:
+            return 0
+        return str(total/cant)
