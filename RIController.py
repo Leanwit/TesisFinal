@@ -255,9 +255,11 @@ class RIController:
         if not documento:
             self.preprocesamiento.crearDocumento(target)
 
-    def initCrank(self, path):
-        self.crearRelacionesCRank(path)
+    def initCrank(self):
+        self.crearRelacionesCRank("Entrada/crank.txt")
 
+        listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
+        self.crank.calcularRelevancia("Tea Mint")
 
 
 
