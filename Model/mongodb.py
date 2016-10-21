@@ -196,3 +196,22 @@ class MongoDb:
         cursor = self.db.relevancia.find({"url":url})
         return cursor[0]
 
+    def crearRelaciones(self, source, target):
+        documentos = self.getDocumento(target)
+        if documentos:
+            if "inlinks" in documentos:
+                if not source in documentos['inlinks']:
+                    self.insertarRelacion(source,target)
+            else:
+                self.insertarRelacion(source,target)
+
+    def insertarRelacion(self,source,target):
+        self.db.documento.update_one(
+            {"url": target},
+            {
+                "$push": {
+                    "inlinks": source
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )
