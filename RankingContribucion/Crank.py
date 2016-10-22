@@ -92,3 +92,29 @@ class Crank:
         if un_termino in documento.words:
             valor = documento.tf(un_termino)
         return valor
+
+    def calcularScoreContribucion(self):
+        listaDocumentos = self.mongodb.getDocumentos()
+        analizados = []
+        for unDocumento in listaDocumentos:
+            unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados)
+            self.mongodb.setearRelevanciaContribucion(unDocumento['url'],unDocumento['scoreContribucion'])
+
+    def calcularScoreContribucionRecursividad(self, doc, nivel, analizados, atributo = "relevanciaEnfoquePonderado"):
+        score = 0
+        if nivel < 4:
+            if not doc in analizados:
+                analizados.append(doc)
+                if 'inlinks' in doc:
+                    for inlink in doc['inlinks']:
+                        inlink = self.mongodb.getDocumento(inlink)
+                        score += self.calcularScoreContribucionRecursividad(inlink, nivel + 1, analizados)
+                        if "inlinks" in inlink:
+                            score_inlink = 0
+                            for aux_inlink in inlink['inlinks']:
+                                aux_inlink = self.mongodb.getDocumento(aux_inlink)
+                                score_inlink += aux_inlink[atributo]
+                            if inlink[atributo] != 0:
+                                score += (doc[atributo] / (inlink[atributo] + score_inlink)) * inlink[atributo]
+
+        return score

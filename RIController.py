@@ -257,13 +257,12 @@ class RIController:
 
     def initCrank(self,metodo="EP",consulta=""):
         self.crearRelacionesCRank("Entrada/crank.txt")
-
         listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
-
         if metodo == "EP":
             self.crank.calcularRelevancia(consulta)
         elif metodo == "Crank":
             self.crank.calcularRelevanciaCrank(consulta)
 
+        self.crank.calcularScoreContribucion()
 
 
