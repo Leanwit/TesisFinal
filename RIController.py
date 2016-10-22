@@ -265,4 +265,6 @@ class RIController:
 
         self.crank.calcularScoreContribucion()
 
-
+        listaRankeada = self.crank.calcularPuntajeFinal(listaUrls,consulta)
+        self.escribirRanking("Salida/sc.txt", listaRankeada)
+        self.metricasEvaluacion(listaRankeada)

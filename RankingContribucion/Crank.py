@@ -118,3 +118,20 @@ class Crank:
                                 score += (doc[atributo] / (inlink[atributo] + score_inlink)) * inlink[atributo]
 
         return score
+
+    def calcularPuntajeFinal(self,listaUrls,consulta,atributo = "relevanciaEnfoquePonderado"):
+        listaUrlsPonderados = []
+        for unaUrl in listaUrls:
+            documento = self.mongodb.getDocumento(unaUrl)
+            if documento:
+                scoreRelevance = documento[atributo]
+                scoreContribucion = documento['relevanciaContribucion']
+                scoreFinal = 0.80 * scoreRelevance + 0.20 * scoreContribucion
+
+                urlPonderado = {}
+                urlPonderado['url'] = unaUrl
+                urlPonderado['score'] = scoreFinal
+                listaUrlsPonderados.append(urlPonderado)
+
+        listaNueva = sorted(listaUrlsPonderados, key=lambda k: k['score'], reverse=True)
+        return listaNueva
