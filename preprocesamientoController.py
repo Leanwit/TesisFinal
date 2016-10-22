@@ -217,7 +217,7 @@ class preprocesamientoController:
             return 0
 
     def getDocumentoPattern(self, id):
-        return Document("DocumentoPattern/" + str(id))
+        return Document.load("DocumentoPattern/" + str(id))
 
     def obtenerVectorSpaceModel(self, url):
         documento = self.mongoDb.getDocumento(url['url'])
@@ -227,6 +227,10 @@ class preprocesamientoController:
                     return consultasClase['atributos']['queryVectorSpaceModelDocumento']
         return 1
 
-
-
-
+    def leerArchivoUrl(self,path):
+        listaUrls = []
+        archivo = open(path, 'r').read()
+        for unaLinea in archivo.split("\n"):
+            if unaLinea:
+                listaUrls.append(self.limpiarUrl(unaLinea))
+        return listaUrls
