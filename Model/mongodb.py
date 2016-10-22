@@ -215,3 +215,39 @@ class MongoDb:
                 "$currentDate": {"lastModified": True}
             }
         )
+
+    def setearRelevanciaEnfoquePonderado(self, url, puntaje):
+        self.db.documento.update_one(
+            {"url": url},
+            {
+                "$set": {
+                    "relevanciaEnfoquePonderado": puntaje
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )
+
+    def setearRelevanciaCrank(self, url, puntaje):
+        self.db.documento.update_one(
+            {"url": url},
+            {
+                "$set": {
+                    "relevanciaCrank": puntaje
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )
+
+    def getDocumentos(self):
+        return self.db.documento.find()
+
+    def setearRelevanciaContribucion(self, url, puntaje):
+        self.db.documento.update_one(
+            {"url": url},
+            {
+                "$set": {
+                    "relevanciaContribucion": puntaje
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )
