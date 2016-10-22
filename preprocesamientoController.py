@@ -152,37 +152,35 @@ class preprocesamientoController:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
         return unDocumento
 
-    def lecturaSVM(self,path,type = "normal"):
+    def lecturaSVM(self,path):
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
                 campos = unaLinea.split(" , ")
-                if type == "normal":
-                    consulta = campos[0]
-                    url = self.limpiarUrl(campos[1])
-                    if len(campos) > 2:
-                        clase = campos[2]
-                        if clase and url:
-                            documentoPattern = self.crearDocumentoSVM(url)
-                            if documentoPattern and consulta:
-                                consultaClase = {}
-                                consultaClase['consulta'] = consulta
-                                consultaClase['clase'] = clase
-                                if documentoPattern:
-                                    self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
-                else:
-                    consulta = campos[0]
-                    url = self.limpiarUrl(campos[1])
-                    doc = self.mongoDb.getDocumentoParam({"url":url,"consultasClases.consulta":consulta})
-                    if not doc:
+                consulta = campos[0]
+                url = self.limpiarUrl(campos[1])
+                if len(campos) > 2:
+                    clase = campos[2]
+                    if clase and url:
                         documentoPattern = self.crearDocumentoSVM(url)
-                        consultaClase = {}
-                        consultaClase['consulta'] = consulta
-                        if documentoPattern:
-                            self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
+                        if documentoPattern and consulta:
+                            consultaClase = {}
+                            consultaClase['consulta'] = consulta
+                            consultaClase['clase'] = clase
+                            if documentoPattern:
+                                self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
         self.mongoDb.eliminarDocumentosSinContenido()
 
-
+    def lecturaSVMRanking(self,listaUrls,consulta):
+        for url in listaUrls:
+            doc = self.mongoDb.getDocumentoParam({"url": url, "consultasClases.consulta": consulta})
+            if not doc:
+                documentoPattern = self.crearDocumentoSVM(url)
+                consultaClase = {}
+                consultaClase['consulta'] = consulta
+                if documentoPattern:
+                    self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
+        self.mongoDb.eliminarDocumentosSinContenido()
 
     def crearDocumentoPattern(self,contenido,name = ""):
         return Document(contenido,name=name,stemmer=PORTER,stopwords=True,weigth=TFIDF)
@@ -219,11 +217,11 @@ class preprocesamientoController:
     def getDocumentoPattern(self, id):
         return Document.load("DocumentoPattern/" + str(id))
 
-    def obtenerVectorSpaceModel(self, url):
-        documento = self.mongoDb.getDocumento(url['url'])
+    def obtenerVectorSpaceModel(self, url,consulta):
+        documento = self.mongoDb.getDocumento(url)
         if documento:
             for consultasClase in documento['consultasClase']:
-                if consultasClase['consulta'] == url['consulta']:
+                if consultasClase['consulta'] == consulta:
                     return consultasClase['atributos']['queryVectorSpaceModelDocumento']
         return 1
 

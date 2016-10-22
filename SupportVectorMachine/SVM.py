@@ -77,17 +77,20 @@ class SVM:
 
         self.crearAtributosGrupales(listaAtributos)
 
-    def setearAtributosRanking(self,listaUrls):
+    def setearAtributosRanking(self,listaUrls,consulta):
         listaAtributos = []
+        listaProcesados = []
         for url in listaUrls:
-            documento = self.mongodb.getDocumento(url['url'])
+            documento = self.mongodb.getDocumento(url)
             if documento:
                 for consultaClase in documento['consultasClase']:
                     atributo = self.crearAtributosSingulares(documento,consultaClase['consulta'])
                     self.mongodb.agregarDatosAtributos(documento,consultaClase['consulta'],atributo)
                     listaAtributos.append(atributo)
+                    listaProcesados.append(url)
 
-        self.crearAtributosGrupalesRanking(listaAtributos,listaUrls)
+        self.crearAtributosGrupalesRanking(listaUrls,consulta)
+        return listaProcesados
 
     def crearAtributosSingulares(self,documento,consulta):
         unDocumentoPattern = Document.load("DocumentoPattern/"+str(documento['_id']))
@@ -145,12 +148,9 @@ class SVM:
             unAtributo = Atributos()
             unAtributo.calcularAtributosCorpus(modelos,consulta,listaDocumentos)
 
-    def crearAtributosGrupalesRanking(self,listaAtributos,listaUrls):
+    def crearAtributosGrupalesRanking(self,listaUrls,consulta):
         consultas = []
-        for url in listaUrls:
-            if url['consulta'] not in consultas:
-                consultas.append(url['consulta'])
-
+        consultas.append(consulta)
         for consulta in consultas:
             listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))
             listaAtributos = self.mongodb.getAtributosPorConsulta(consulta)
@@ -226,23 +226,22 @@ class SVM:
         shuffle(x)
         return x
 
-    def getAtributosRanking(self, listaUrls):
+    def getAtributosRanking(self, listaUrls,consulta):
         X = []
         name = []
         for url in listaUrls:
-            doc = self.mongodb.getDocumento(url['url'])
+            doc = self.mongodb.getDocumento(url)
             if doc:
                 for consultaClase in doc['consultasClase']:
-                    print consultaClase
-                    if consultaClase['consulta'] == url['consulta']:
+                    if consultaClase['consulta'] == consulta:
                         aux = []
                         for atributo in consultaClase['atributos']:
                             aux.append(consultaClase['atributos'][atributo])
                         if aux:
                             X.append(aux)
-                            name.append(url['url'])
+                            name.append(url)
                         else:
-                            print "Sin Atributos" + url['url']
+                            print "Sin Atributos" + url
 
         puntos = {}
         puntos['X'] = X

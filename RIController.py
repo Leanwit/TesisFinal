@@ -117,11 +117,11 @@ class RIController:
         joblib.dump(svm.instanciaSVM, 'Model/SVM/'+name+'.pkl')
         pass
 
-    def rankingSVM(self, path):
-        listaUrls = self.preprocesamiento.leerArchivoUrls(path)
-        self.preprocesamiento.lecturaSVM(path,'ranking')
-        self.svmRelevante.setearAtributosRanking(listaUrls)
-        puntos = self.svmRelevante.getAtributosRanking(listaUrls)
+    def rankingSVM(self, path,consulta):
+        listaUrls = self.preprocesamiento.leerArchivoUrl(path)
+        self.preprocesamiento.lecturaSVMRanking(listaUrls,consulta)
+        listaUrls = self.svmRelevante.setearAtributosRanking(listaUrls,consulta)
+        puntos = self.svmRelevante.getAtributosRanking(listaUrls,consulta)
         X = np.array(puntos['X'])
 
         svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
@@ -138,8 +138,8 @@ class RIController:
         ranking = []
         for indice , url in enumerate(listaUrls):
             documento = {}
-            documento['url'] = url['url']
-            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 3)
+            documento['url'] = url
+            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url,consulta)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 3)
             ranking.append(documento)
             #print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
 
@@ -148,13 +148,14 @@ class RIController:
         self.escribirRanking("Salida/svm.txt",listaNueva)
         self.metricasEvaluacion(listaNueva)
 
+        return listaNueva
 
 
     def limpiarListaUrls(self, listaUrls, urlsX):
         """limpiar lista de urls que no lograron descargarse"""
         nuevaLista = []
         for url in listaUrls:
-            if url['url'] in urlsX:
+            if url in urlsX:
                 nuevaLista.append(url)
         return nuevaLista
 
@@ -219,7 +220,6 @@ class RIController:
         for doc in lista:
             archivo.write(doc['url'] + " , " + str(doc['score']) + "\n")
         archivo.close()
-        pass
 
     def metricasEvaluacion(self, listaNueva):
         listaRelevancia = []
@@ -268,3 +268,40 @@ class RIController:
         listaRankeada = self.crank.calcularPuntajeFinal(listaUrls,consulta)
         self.escribirRanking("Salida/sc.txt", listaRankeada)
         self.metricasEvaluacion(listaRankeada)
+
+        return listaRankeada
+
+    def iniciarRanking(self,consulta):
+        #Entrenar SVM
+        # self.initSVM('Entrada/svmEntrenamiento.txt')
+
+        #Crear lista de documentos con relevancia
+        #self.crearListaConRelevancia('Entrada/listaRelevancia.txt')
+
+        #Ranking SVM
+        listaSvm = self.rankingSVM('Entrada/urls.txt',consulta)
+
+        #Ranking Contribucion
+        listaContribucion = self.initCrank("EP",consulta)
+
+
+        listaFinal = self.rankingFinal(listaSvm,listaContribucion)
+        print "Score Final"
+        self.escribirRanking("Salida/final.txt", listaFinal)
+        self.metricasEvaluacion(listaFinal)
+
+    def rankingFinal(self, listaSvm, listaContribucion):
+        listaFinal = []
+        for indice, url in enumerate(listaSvm):
+            documento = {}
+            documento['url'] = url['url']
+            documento['score'] = float(1) / float(indice + 1)
+            listaFinal.append(documento)
+
+        for indice, url in enumerate(listaContribucion):
+            for auxUrl in listaFinal:
+                if auxUrl['url'] == url['url']:
+                    auxUrl['score'] += float(1) / float(indice + 1)
+
+        listaFinal = sorted(listaFinal, key=lambda k: k['score'], reverse=True)
+        return listaFinal
