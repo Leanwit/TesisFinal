@@ -232,13 +232,17 @@ class RIController:
                 listaRelevancia.append(documentoAux)
 
         cantidadRelevantes = self.calcularCantidadDocumentosRelevantes(listaRelevancia)
-        print cantidadRelevantes
-        for top in range(1,30):
+        precisionRecall = []
+        for top in range(1,len(listaRelevancia)):
             precision = self.precision(top,listaRelevancia)
             recall = self.recall(top,listaRelevancia,cantidadRelevantes)
             fmeasure = self.fmeasure(recall,precision)
             precisionPromedio = self.precisionPromedio(top,listaRelevancia)
-            print precision,recall,fmeasure,precisionPromedio
+            #print precision,recall,fmeasure,precisionPromedio
+            precisionRecall.append([precision,recall])
+
+        self.interpolarPrecisionRecall(precisionRecall)
+
 
 
     def crearRelacionesCRank(self,path):
@@ -254,6 +258,8 @@ class RIController:
         documento = self.mongodb.getDocumento(target)
         if not documento:
             self.preprocesamiento.crearDocumento(target)
+
+
 
     def initCrank(self,metodo="EP",consulta=""):
         self.crearRelacionesCRank("Entrada/crank.txt")
@@ -305,3 +311,69 @@ class RIController:
 
         listaFinal = sorted(listaFinal, key=lambda k: k['score'], reverse=True)
         return listaFinal
+
+    def interpolarPrecisionRecall(self, precisionRecall):
+        recall = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+        precision = []
+        indice = 0
+        for parPR in precisionRecall:
+            if indice < len(recall):
+                if float(parPR[1]) > (recall[indice]):
+                    precision.append(parPR[0])
+                    indice +=1
+        print precision
+
+
+    def metodosAlternativos(self,consulta):
+        listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
+        consulta = self.preprocesamiento.crearDocumentoPattern(consulta, "consulta")
+
+        self.rankingVectorSpaceModel(listaUrls,consulta)
+        self.enfoquePonderado(listaUrls,consulta)
+        self.calcularCrankOriginal(listaUrls,consulta)
+
+
+    def rankingVectorSpaceModel(self, listaUrls, consulta):
+        listaUrlsRankeados = []
+        for url in listaUrls:
+            documento = self.mongodb.getDocumento(url)
+            if documento:
+                documentoPattern = self.preprocesamiento.getDocumentoPattern(documento['_id'])
+                score = self.preprocesamiento.calcularVectorSpaceModel(consulta,documentoPattern)
+                listaUrlsRankeados.append(self.crearJsonRanking(url,score))
+
+        listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
+        self.metricasEvaluacion(listaFinal)
+
+    def enfoquePonderado(self, listaUrls, consulta,tema = "Tea"):
+        listaUrlsRankeados = []
+        diccionario = self.crank.getDiccionarioDominio(tema)
+        for url in listaUrls:
+            documento = self.mongodb.getDocumento(url)
+            if documento:
+                documentoPattern = self.preprocesamiento.getDocumentoPattern(documento['_id'])
+                score = self.crank.calcularEnfoquePonderado(documentoPattern,consulta,diccionario)
+                listaUrlsRankeados.append(self.crearJsonRanking(url,score))
+
+        listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
+        self.metricasEvaluacion(listaFinal)
+
+
+    def crearJsonRanking(self,url,score):
+        documento = {}
+        documento['url'] = url
+        documento['score'] = score
+        return documento
+
+    def calcularCrankOriginal(self, listaUrls, consulta):
+        listaUrlsRankeados = []
+        self.crank.calcularRelevanciaCrank(consulta)
+        for url in listaUrls:
+            documento = self.mongodb.getDocumento(url)
+            if documento:
+                documentoPattern = self.preprocesamiento.getDocumentoPattern(documento['_id'])
+                score = documento['relevanciaCrank']
+                listaUrlsRankeados.append(self.crearJsonRanking(url,score))
+
+        listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
+        self.metricasEvaluacion(listaFinal)

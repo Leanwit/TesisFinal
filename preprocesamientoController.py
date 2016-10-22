@@ -1,5 +1,5 @@
 from Model.mongodb import *
-from pattern.vector import Document, PORTER, TFIDF, Model
+from pattern.vector import Document, PORTER, TFIDF, Model, distance, COSINE
 from pattern.web import URL, plaintext, extension,Element
 import urllib2
 import os
@@ -47,6 +47,7 @@ class preprocesamientoController:
         if contenido:
             documento = self.insertarDocumento(url,contenido)
             self.agregarInformacionDocumento(url, contenido)
+            print "Creado " , url
             return documento
 
     def crearDocumentoSVM(self,url):
@@ -232,3 +233,7 @@ class preprocesamientoController:
             if unaLinea:
                 listaUrls.append(self.limpiarUrl(unaLinea))
         return listaUrls
+
+    def calcularVectorSpaceModel(self, doc1, doc2):
+        return distance(doc1.vector,doc2.vector,method=COSINE)
+

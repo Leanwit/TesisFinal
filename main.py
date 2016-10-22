@@ -8,3 +8,4 @@ consulta = "Tea AND alternative AND new AND Value added AND patents OR paper OR 
 
 controladorRI = RIController()
 controladorRI.iniciarRanking(consulta)
+#controladorRI.metodosAlternativos(consulta)
