@@ -251,3 +251,10 @@ class MongoDb:
                 "$currentDate": {"lastModified": True}
             }
         )
+
+    def escribirParametrosSVM(self, mejorCombinacion):
+        self.db.SVM.insert_one(
+            {
+                "instanciaSVM":mejorCombinacion
+            }
+        )
