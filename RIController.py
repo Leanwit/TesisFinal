@@ -285,14 +285,14 @@ class RIController:
 
 
     def initCrank(self,metodo="EP",consulta=""):
-        self.crearRelacionesCRank("Entrada/crank.txt")
+        #self.crearRelacionesCRank("Entrada/crank.txt")
         listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
         if metodo == "EP":
-            self.crank.calcularRelevancia(consulta)
+            self.crank.calcularRelevancia(consulta,"Tea",listaUrls)
         elif metodo == "Crank":
             self.crank.calcularRelevanciaCrank(consulta)
 
-        self.crank.calcularScoreContribucion()
+        self.crank.calcularScoreContribucion(listaUrls)
 
         listaRankeada = self.crank.calcularPuntajeFinal(listaUrls,consulta)
         self.escribirRanking("Salida/sc.txt", listaRankeada)
@@ -392,7 +392,7 @@ class RIController:
 
     def calcularCrankOriginal(self, listaUrls, consulta):
         listaUrlsRankeados = []
-        self.crank.calcularRelevanciaCrank(consulta)
+        self.crank.calcularRelevanciaCrank(consulta,listaUrls)
         for url in listaUrls:
             documento = self.mongodb.getDocumento(url)
             if documento:

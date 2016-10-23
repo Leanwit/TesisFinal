@@ -1,6 +1,6 @@
 from preprocesamientoController import *
 from Model.mongodb import *
-
+import copy
 class Crank:
     preprocesamiento = preprocesamientoController()
     mongodb = MongoDb()
@@ -27,14 +27,22 @@ class Crank:
             json['target'] = unaLinea[0]
             return json
 
-    def calcularRelevancia(self, consulta, tema = "Tea"):
+    def calcularRelevancia(self, consulta, tema = "Tea",listaUrls = []):
         diccionario = self.getDiccionarioDominio(tema)
         consultaPattern = self.preprocesamiento.crearDocumentoPattern(consulta,"Consulta")
-        listaDocumentos = self.mongodb.getDocumentos()
+
+        listaDocumentos = self.getAllInlinks(listaUrls)
+        while listaDocumentos != listaUrls:
+            listaUrls = copy.copy(listaDocumentos)
+            listaDocumentos = self.getAllInlinks(listaUrls)
+
         for unDocumento in listaDocumentos:
-            documentoPattern = self.preprocesamiento.getDocumentoPattern(unDocumento['_id'])
-            puntajeFinal = self.calcularEnfoquePonderado(documentoPattern,consultaPattern,diccionario)
-            self.mongodb.setearRelevanciaEnfoquePonderado(unDocumento['url'],puntajeFinal)
+            unDocumento = self.mongodb.getDocumento(unDocumento)
+            if unDocumento:
+                documentoPattern = self.preprocesamiento.getDocumentoPattern(unDocumento['_id'])
+                puntajeFinal = self.calcularEnfoquePonderado(documentoPattern,consultaPattern,diccionario)
+                self.mongodb.setearRelevanciaEnfoquePonderado(unDocumento['url'],puntajeFinal)
+
 
     def getDiccionarioDominio(self, diccionario):
         archivo = open("RankingContribucion/dd"+diccionario+".txt","r")
@@ -62,23 +70,31 @@ class Crank:
             puntajeFinal = 0
         return puntajeFinal
 
-    def calcularRelevanciaCrank(self,consulta):
+    def calcularRelevanciaCrank(self,consulta,listaUrls):
         consultaDocumento = self.preprocesamiento.crearDocumentoPattern(consulta,"consulta")
-        listaDocumentos = self.mongodb.getDocumentos()
+
+        listaDocumentos = self.getAllInlinks(listaUrls)
+        while listaDocumentos != listaUrls:
+            listaUrls = copy.copy(listaDocumentos)
+            listaDocumentos = self.getAllInlinks(listaUrls)
+
         listaDocumentosPattern = []
         for doc in listaDocumentos:
-            documentoPattern = self.preprocesamiento.getDocumentoPattern(doc['_id'])
-            listaDocumentosPattern.append(documentoPattern)
+            doc = self.mongodb.getDocumento(doc)
+            if doc:
+                documentoPattern = self.preprocesamiento.getDocumentoPattern(doc['_id'])
+                listaDocumentosPattern.append(documentoPattern)
         modelo = self.preprocesamiento.crearModelo(listaDocumentosPattern)
 
-        listaDocumentos = self.mongodb.getDocumentos()
         for doc in listaDocumentos:
-            doc = self.preprocesamiento.getDocumentoPattern(doc['_id'])
-            scoreRelevance = 0
-            var_coord = self.coord(doc, consultaDocumento)
-            for unTermino in consultaDocumento:
-                scoreRelevance += doc.tfidf(unTermino) * self.norm(doc, unTermino) * var_coord
-            self.mongodb.setearRelevanciaCrank(doc.name,scoreRelevance)
+            doc = self.mongodb.getDocumento(doc)
+            if doc:
+                doc = self.preprocesamiento.getDocumentoPattern(doc['_id'])
+                scoreRelevance = 0
+                var_coord = self.coord(doc, consultaDocumento)
+                for unTermino in consultaDocumento:
+                    scoreRelevance += doc.tfidf(unTermino) * self.norm(doc, unTermino) * var_coord
+                self.mongodb.setearRelevanciaCrank(doc.name,scoreRelevance)
 
     def coord(self, documento, consulta):
         contador = 0
@@ -93,12 +109,18 @@ class Crank:
             valor = documento.tf(un_termino)
         return valor
 
-    def calcularScoreContribucion(self):
-        listaDocumentos = self.mongodb.getDocumentos()
+    def calcularScoreContribucion(self,listaUrls):
+        listaDocumentos = self.getAllInlinks(listaUrls)
+        while listaDocumentos != listaUrls:
+            listaUrls = copy.copy(listaDocumentos)
+            listaDocumentos = self.getAllInlinks(listaUrls)
+
         analizados = []
         for unDocumento in listaDocumentos:
-            unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados)
-            self.mongodb.setearRelevanciaContribucion(unDocumento['url'],unDocumento['scoreContribucion'])
+            unDocumento = self.mongodb.getDocumento(unDocumento)
+            if unDocumento:
+                unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados)
+                self.mongodb.setearRelevanciaContribucion(unDocumento['url'],unDocumento['scoreContribucion'])
 
     def calcularScoreContribucionRecursividad(self, doc, nivel, analizados, atributo = "relevanciaEnfoquePonderado"):
         score = 0
@@ -135,3 +157,21 @@ class Crank:
 
         listaNueva = sorted(listaUrlsPonderados, key=lambda k: k['score'], reverse=True)
         return listaNueva
+
+    def getAllInlinks(self, listaUrls):
+        listaCalculo = []
+        for url in listaUrls:
+            if url not in listaCalculo:
+                listaCalculo.append(url)
+            documento = self.mongodb.getDocumento(url)
+            if documento:
+                if "inlinks" in documento:
+                    for inlink in documento['inlinks']:
+                        if not inlink in listaCalculo:
+                            listaCalculo.append(inlink)
+
+        return listaCalculo
+
+
+
+
