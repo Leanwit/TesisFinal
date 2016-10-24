@@ -22,10 +22,13 @@ class RIController:
             self.predecirListaUrls(conjuntos)
 
     def initSVM(self,path):
-        self.preprocesamiento.lecturaSVM(path)
-        self.iniciarSVM(self.svmNoRelevante,"norelevante",1)
-        self.iniciarSVM(self.svmRelevante,"relevante",2)
-        self.iniciarSVM(self.svmMuyRelevante,"muyrelevante",4)
+        print "Inicio Lectura Archivo"
+        listaUrls = self.preprocesamiento.lecturaSVM(path)
+        print "Fin Lectura Archivo"
+
+        self.iniciarSVM(self.svmNoRelevante,"norelevante",1,listaUrls)
+        self.iniciarSVM(self.svmRelevante,"relevante",2,listaUrls)
+        self.iniciarSVM(self.svmMuyRelevante,"muyrelevante",4,listaUrls)
 
     def predecirListaUrls(self,puntos):
         svm = joblib.load('Model/SVM/filename.pkl')
@@ -54,9 +57,13 @@ class RIController:
         parametros['fin'] = 100
         parametros['incremento'] = 0.5
 
+        #incremento gamma
+        parametros['incrementoG'] = 10
+
         parametros['rangoC'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incremento'])
-        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incremento'])
-        parametros['kernels'] = ['rbf', 'poly', "linear"]
+        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incrementoG'])
+        parametros['kernels'] = ['rbf', 'poly', 'linear']
+        #parametros['kernels'] = ['poly']
 
         return parametros
 
@@ -76,6 +83,7 @@ class RIController:
         for kernel in parametros['kernels']:
             for gamma in parametros['rangoGamma']:
                 for C in parametros['rangoC']:
+                    print C,kernel,gamma
                     svm.ajustarParametros(C, kernel, .8,.2, X, Y, gamma=gamma)
                     svm.training()
                     precision = svm.testing()
@@ -99,17 +107,16 @@ class RIController:
                 aciertos += 1
         print float(aciertos) / float(total)
 
-    def iniciarSVM(self,svm,name,limite):
-        svm.setearAtributos()
+    def iniciarSVM(self,svm,name,limite,listaUrls):
+        #svm.setearAtributos(listaUrls)
 
-        puntos = svm.obtenerAtributos(limite)
+        puntos = svm.obtenerAtributos(limite,listaUrls)
         conjuntos = svm.dividirConjuntoTesting(puntos, .8, .2)
 
         X = conjuntos['xEntrenamiento']
         Y = conjuntos['yEntrenamiento']
 
         parametros = self.inicializarParametrosIteracion()
-
         self.entrenarSVM(svm,parametros, X, Y,name)
 
         X = conjuntos['xTest']
@@ -302,7 +309,7 @@ class RIController:
 
     def iniciarRanking(self,consulta):
         #Entrenar SVM
-        #self.initSVM('Entrada/svmEntrenamiento.txt')
+        self.initSVM('Entrada/svmEntrenamiento.txt')
 
         #Crear lista de documentos con relevancia
         self.crearListaConRelevancia('Entrada/listaRelevancia.txt')

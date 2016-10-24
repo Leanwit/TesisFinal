@@ -154,6 +154,7 @@ class preprocesamientoController:
         return unDocumento
 
     def lecturaSVM(self,path):
+        listaUrls = []
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
             if unaLinea:
@@ -163,14 +164,20 @@ class preprocesamientoController:
                 if len(campos) > 2:
                     clase = campos[2]
                     if clase and url:
-                        documentoPattern = self.crearDocumentoSVM(url)
+                        documento = self.mongoDb.getDocumento(url)
+                        if not documento:
+                            documentoPattern = self.crearDocumentoSVM(url)
+                        else:
+                            documentoPattern = self.getDocumentoPattern(documento['_id'])
                         if documentoPattern and consulta:
                             consultaClase = {}
                             consultaClase['consulta'] = consulta
                             consultaClase['clase'] = clase
                             if documentoPattern:
                                 self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
+                                listaUrls.append(url)
         self.mongoDb.eliminarDocumentosSinContenido()
+        return listaUrls
 
     def lecturaSVMRanking(self,listaUrls,consulta):
         for url in listaUrls:

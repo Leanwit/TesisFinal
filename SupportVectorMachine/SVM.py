@@ -34,8 +34,10 @@ class SVM:
         self.X = np.array(X)
         self.Y = np.array(Y)
         self.definirConjuntos(entrenamiento,test)
-        self.instanciaSVM = svm.SVC(C=c, kernel=kernel, gamma=gamma)
-
+        if kernel == "poly":
+            self.instanciaSVM = svm.SVC(C=c, kernel=kernel, degree=3, gamma=gamma)
+        else:
+            self.instanciaSVM = svm.SVC(C=c, kernel=kernel, gamma=gamma)
 
     def training(self):
         self.instanciaSVM.fit(self.xEntrenamiento,self.yEntrenamiento)
@@ -66,10 +68,10 @@ class SVM:
         self.yTest = self.Y[int(cantTest*len(self.Y))*int(-1):]
 
 
-    def setearAtributos(self):
-        documentos = self.mongodb.getDocumentosConConsulta()
+    def setearAtributos(self,listaUrls):
         listaAtributos = []
-        for documento in documentos:
+        for documento in listaUrls:
+            documento = self.mongodb.getDocumento(documento)
             for consultaClase in documento['consultasClase']:
                 atributo = self.crearAtributosSingulares(documento,consultaClase['consulta'])
                 self.mongodb.agregarDatosAtributos(documento,consultaClase['consulta'],atributo)
@@ -186,15 +188,12 @@ class SVM:
                 listaPartes.append(x)
         return self.preprocesamiento.crearDocumentoPattern(listaPartes)
 
-    def obtenerAtributos(self, relevancia):
-        listaDocumentos = self.mongodb.getDocumentosConConsulta(orden = True)
-
-
-
+    def obtenerAtributos(self, relevancia,listaUrls):
         puntos = {}
         X = []
         Y = []
-        for doc in listaDocumentos:
+        for doc in listaUrls:
+            doc = self.mongodb.getDocumento(doc)
             for consultaClase in doc['consultasClase']:
                 if 'clase' in consultaClase:
                     aux = []
