@@ -253,7 +253,7 @@ class MongoDb:
         )
 
     def escribirParametrosSVM(self, mejorCombinacion):
-        self.db.SVM.insert_one(
+        return self.db.SVM.insert_one(
             {
                 "instanciaSVM":mejorCombinacion
             }

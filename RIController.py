@@ -53,7 +53,7 @@ class RIController:
     def inicializarParametrosIteracion(self):
         parametros = {}
 
-        parametros['inicio'] = 0.01
+        '''parametros['inicio'] = 0.01
         parametros['fin'] = 100
         parametros['incremento'] = 0.5
 
@@ -61,9 +61,12 @@ class RIController:
         parametros['incrementoG'] = 10
 
         parametros['rangoC'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incremento'])
-        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incrementoG'])
-        parametros['kernels'] = ['rbf', 'poly', 'linear']
-        #parametros['kernels'] = ['poly']
+        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incrementoG'])'''
+
+        parametros['rangoC'] = [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1,0.5,1,5,10]
+        parametros['rangoGamma'] = [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1,0.5,1,5,10]
+        parametros['kernels'] = ['rbf', 'linear', 'poly',]
+        #parametros['kernels'] = ['rbf']
 
         return parametros
 
@@ -71,8 +74,8 @@ class RIController:
 
         mejorCombinacion = {}
         mejorCombinacion['precision'] = 0
-        mejorCombinacion['C'] = parametros['inicio']
-        mejorCombinacion['gamma'] = parametros['inicio']
+        mejorCombinacion['C'] = parametros['rangoC'][0]
+        mejorCombinacion['gamma'] = parametros['rangoGamma'][0]
         mejorCombinacion['kernel'] = parametros['kernels'][0]
         mejorCombinacion['name'] = name
         return mejorCombinacion
@@ -95,7 +98,7 @@ class RIController:
                         print mejorCombinacion
                         print " ---------- "
             print "fin kernel " + kernel
-        self.mongodb.escribirParametrosSVM(mejorCombinacion)
+        print self.mongodb.escribirParametrosSVM(mejorCombinacion).inserted_id
 
     def predecir(self, svm, X, Y):
         predicciones = svm.predecir(X)
@@ -108,7 +111,7 @@ class RIController:
         print float(aciertos) / float(total)
 
     def iniciarSVM(self,svm,name,limite,listaUrls):
-        #svm.setearAtributos(listaUrls)
+        svm.setearAtributos(listaUrls)
 
         puntos = svm.obtenerAtributos(limite,listaUrls)
         conjuntos = svm.dividirConjuntoTesting(puntos, .8, .2)
@@ -264,14 +267,18 @@ class RIController:
 
         top5 = self.promedioTop(listaRelevancia, 5)
         top10 = self.promedioTop(listaRelevancia, 10)
+        top15 = self.promedioTop(listaRelevancia, 15)
+        top20 = self.promedioTop(listaRelevancia, 20)
 
-        print "PrecisionRecall ",interpolacion
-        print "Precision ",listaPrecision
-        print "Recall ", listaRecall
-        print "Fmeasure ",listaFmeasure
-        print "MAP ",listaMap
-        print "Top5", top5
-        print "Top10", top10
+        print "PrecisionRecall:",interpolacion
+        print "Precision:",listaPrecision
+        print "Recall:", listaRecall
+        print "Fmeasure:",listaFmeasure[:50]
+        print "MAP:",listaMap[:50]
+        print "Top5:", top5
+        print "Top10:", top10
+        print "Top15:", top15
+        print "Top20:", top20
         print
 
 
@@ -348,14 +355,21 @@ class RIController:
         indice = 0
         for parPR in precisionRecall:
             if indice < len(recall):
-                if float(parPR[1]) > (recall[indice]):
+                if float(parPR[1]) >= (recall[indice]):
                     precision.append(parPR[0])
                     indice +=1
+
+        '''Si no alcanza el 100% de la precision'''
+        if len(precision) == 10:
+            precision.append(precisionRecall[-1][0])
         return precision
 
     def metodosAlternativos(self,consulta):
+        # Crear lista de documentos con relevancia
+        self.crearListaConRelevancia('Entrada/listaRelevancia.txt')
+
         listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
-        consulta = self.preprocesamiento.crearDocumentoPattern(consulta, "consulta")
+        consulta = self.preprocesamiento.crearDocumentoPattern(consulta, consulta)
 
         self.rankingVectorSpaceModel(listaUrls,consulta)
         self.enfoquePonderado(listaUrls,consulta)
@@ -389,7 +403,6 @@ class RIController:
         listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
         self.metricasEvaluacion(listaFinal,"Enfoque Ponderado")
         self.escribirRanking("Salida/enfoqueponderado.txt", listaFinal)
-
 
     def crearJsonRanking(self,url,score):
         documento = {}
