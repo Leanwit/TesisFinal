@@ -1,0 +1,6 @@
+border gateway protocol protocols igp egp ibgp ebgp bgp dual-homed dualhoming dual-home home dual homed dual-homing connection connections to one isp multihoming multihomed
+multi-homed multi-homing multi-home single two link internet service provider local router multiple links exist between remote AS  network through internal external paths path cisco
+traffic traffics policies policy backup backups other routes route routing configuration configurations outbound inbound best selection algorithm tables table troubleshoot same customer
+share private public private advertise prefix company add redundancy routers connectivity redundant multipath weight attribute higher preferred neighbor preference local-preference
+direction multiple physical  independent circuits circuit interrupted fail failed communication communications protection primary secondary point failure switch reliability business
+critical applications demand availability internet more wan med metric peer peering several way ways solution organization organizations connects connect resilience

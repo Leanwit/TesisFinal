@@ -83,13 +83,13 @@ class MongoDb:
         cursor = self.db.documento.find({"url": documento['url']})
         if cursor.count():
             for doc in cursor:
+
                 ''' preparacion de la variable para actualizar '''
                 consultasClases = []
                 for consultaClase in doc['consultasClase']:
                     if consultaClase['consulta'] == consulta:
                         consultaClase['atributos'] = atributo.atributos
                     consultasClases.append(consultaClase)
-
                 '''actualizacion'''
                 self.db.documento.update_one(
                     {"url": documento['url']},
@@ -108,7 +108,7 @@ class MongoDb:
         for doc in cursor:
             consultasClases = []
             for consultaClase in doc['consultasClase']:
-                if consultaClase['consulta'] == consulta.name:
+                if consultaClase['consulta'] == consulta:
                     consultaClase['atributos'][variable] = valor
                 consultasClases.append(consultaClase)
             self.db.documento.update_one(
@@ -167,7 +167,7 @@ class MongoDb:
             for consultaClase in doc['consultasClase']:
                 if consultaClase['consulta'] == consulta:
                     atributos = {}
-                    atributos['doc'] = doc['id']
+                    atributos['doc'] = doc['url']
                     atributos['atributo'] = consultaClase['atributos']
                     listaAtributos.append(atributos)
         return listaAtributos
@@ -258,3 +258,7 @@ class MongoDb:
                 "instanciaSVM":mejorCombinacion
             }
         )
+
+    def eliminarBdRelevancia(self):
+        self.db.relevancia.delete_many({})
+        print "Eliminado Relevancia"

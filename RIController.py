@@ -17,10 +17,6 @@ class RIController:
     def __init__(self):
         pass
 
-    def clasificarSVM(self):
-        if os.path.exists("Model/SVM/filename.pkl") and load:
-            self.predecirListaUrls(conjuntos)
-
     def initSVM(self,path):
         print "Inicio Lectura Archivo"
         listaUrls = self.preprocesamiento.lecturaSVM(path)
@@ -53,20 +49,19 @@ class RIController:
     def inicializarParametrosIteracion(self):
         parametros = {}
 
-        '''parametros['inicio'] = 0.01
-        parametros['fin'] = 100
-        parametros['incremento'] = 0.5
+        parametros['inicio'] = 0.001
+        parametros['fin'] = 30
+        parametros['incremento'] = 0.1
 
         #incremento gamma
-        parametros['incrementoG'] = 10
+        parametros['incrementoG'] = 1
 
         parametros['rangoC'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incremento'])
-        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incrementoG'])'''
+        parametros['rangoGamma'] = np.arange(parametros['inicio'], parametros['fin'], parametros['incrementoG'])
 
-        parametros['rangoC'] = [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1,0.5,1,5,10]
-        parametros['rangoGamma'] = [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1,0.5,1,5,10]
-        parametros['kernels'] = ['rbf', 'linear', 'poly',]
-        #parametros['kernels'] = ['rbf']
+
+        #parametros['kernels'] = ['rbf', 'linear', 'poly',]
+        parametros['kernels'] = ['rbf']
 
         return parametros
 
@@ -111,9 +106,11 @@ class RIController:
         print float(aciertos) / float(total)
 
     def iniciarSVM(self,svm,name,limite,listaUrls):
-        svm.setearAtributos(listaUrls)
+        #listaUrls = svm.desordenarLista(listaUrls)
+        #svm.setearAtributos(listaUrls)
 
         puntos = svm.obtenerAtributos(limite,listaUrls)
+
         conjuntos = svm.dividirConjuntoTesting(puntos, .8, .2)
 
         X = conjuntos['xEntrenamiento']
@@ -129,12 +126,14 @@ class RIController:
         joblib.dump(svm.instanciaSVM, 'Model/SVM/'+name+'.pkl')
         pass
 
-    def rankingSVM(self, path,consulta):
-        listaUrls = self.preprocesamiento.leerArchivoUrl(path)
+    def rankingSVM(self, listaUrls,consulta):
         self.preprocesamiento.lecturaSVMRanking(listaUrls,consulta)
+        print "Set Atributos"
         listaUrls = self.svmRelevante.setearAtributosRanking(listaUrls,consulta)
-        puntos = self.svmRelevante.getAtributosRanking(listaUrls,consulta)
+        print "Finis Set Atributos"
+        puntos = self.svmRelevante.getAtributosRanking(listaUrls,consulta.name)
         X = np.array(puntos['X'])
+
 
         svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
         svmRelevante = joblib.load('Model/SVM/relevante.pkl')
@@ -144,6 +143,9 @@ class RIController:
         prediccionesRelevante = svmRelevante.predict(X)
         prediccionesMuyRelevante = svmMuyrelevante.predict(X)
 
+        #print prediccionesNoRelevante
+        #print prediccionesRelevante
+        #print prediccionesMuyRelevante
         #print len(puntos['X']) , len(prediccionesNoRelevante),len(prediccionesRelevante),len(prediccionesMuyRelevante)
 
         listaUrls = self.limpiarListaUrls(listaUrls,puntos['name'])
@@ -151,14 +153,15 @@ class RIController:
         for indice , url in enumerate(listaUrls):
             documento = {}
             documento['url'] = url
-            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url,consulta)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 2 + prediccionesMuyRelevante[indice] * 3)
+            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(url,consulta.name)) * (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * 1.25 + prediccionesMuyRelevante[indice] * 1.5)
+
+            print documento['url'],documento['score'],self.preprocesamiento.obtenerVectorSpaceModel(url,consulta.name),prediccionesNoRelevante[indice] , prediccionesRelevante[indice] * 2 , prediccionesMuyRelevante[indice] * 3
             ranking.append(documento)
-            #print url['url'], prediccionNoRelevante, prediccionRelevante, prediccionesMuyRelevante
 
 
         listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
-        self.escribirRanking("Salida/svm.txt",listaNueva)
-        self.metricasEvaluacion(listaNueva,"RankingSVM")
+        #self.escribirRanking("Salida/svm.txt",listaNueva)
+        #self.metricasEvaluacion(listaNueva,"RankingSVM")
 
         return listaNueva
 
@@ -219,6 +222,7 @@ class RIController:
         return str(total/cant)
 
     def crearListaConRelevancia(self,path):
+        self.mongodb.eliminarBdRelevancia()
         archivo = open(path,"r")
         for unaLinea in archivo.readlines():
             if unaLinea:
@@ -234,8 +238,8 @@ class RIController:
         archivo.close()
 
     def metricasEvaluacion(self, listaNueva,metodoRanking):
-        print metodoRanking
         listaRelevancia = []
+
         for doc in listaNueva:
             documento = self.mongodb.getDocumentosRelevancia(doc['url'])
             if documento:
@@ -263,6 +267,23 @@ class RIController:
             listaFmeasure.append(fmeasure)
             listaMap.append(precisionPromedio)
             precisionRecall.append([precision,recall])
+
+
+        tops = [1,5,10,15,20,30,40,50]
+        indiceTops = 0
+        listaNuevaFmeasure = []
+        for indice,fmeasure in enumerate(listaFmeasure[:50]):
+            if (indice+1) == tops[indiceTops]:
+                indiceTops +=1
+                listaNuevaFmeasure.append(fmeasure)
+
+        indiceTops = 0
+        listaNuevaMap = []
+        for indice, map in enumerate(listaMap[:50]):
+            if (indice + 1) == tops[indiceTops]:
+                indiceTops += 1
+                listaNuevaMap.append(map)
+
         interpolacion = self.interpolarPrecisionRecall(precisionRecall)
 
         top5 = self.promedioTop(listaRelevancia, 5)
@@ -270,7 +291,17 @@ class RIController:
         top15 = self.promedioTop(listaRelevancia, 15)
         top20 = self.promedioTop(listaRelevancia, 20)
 
-        print "PrecisionRecall:",interpolacion
+        metrica = {}
+        metrica['interpolacion'] =interpolacion
+        metrica['f-medida'] =listaNuevaFmeasure
+        metrica['map'] =listaNuevaMap
+        metrica['top5'] =top5
+        metrica['top10'] =top10
+        metrica['top15'] =top15
+        metrica['top20'] =top20
+        return metrica
+
+        '''print "PrecisionRecall:",interpolacion
         print "Precision:",listaPrecision
         print "Recall:", listaRecall
         print "Fmeasure:",listaFmeasure[:50]
@@ -279,7 +310,7 @@ class RIController:
         print "Top10:", top10
         print "Top15:", top15
         print "Top20:", top20
-        print
+        print'''
 
 
     def crearRelacionesCRank(self,path):
@@ -298,56 +329,79 @@ class RIController:
 
 
 
-    def initCrank(self,metodo="EP",consulta=""):
+    def initCrank(self,metodo="EP",consulta="",listaUrls=""):
         #self.crearRelacionesCRank("Entrada/crank.txt")
-        listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
         if metodo == "EP":
-            self.crank.calcularRelevancia(consulta,"Tea",listaUrls)
+            self.crank.calcularRelevancia(consulta,"ISP",listaUrls)
         elif metodo == "Crank":
             self.crank.calcularRelevanciaCrank(consulta)
 
         self.crank.calcularScoreContribucion(listaUrls)
 
         listaRankeada = self.crank.calcularPuntajeFinal(listaUrls,consulta)
-        self.escribirRanking("Salida/sc.txt", listaRankeada)
-        self.metricasEvaluacion(listaRankeada,"RankingContribucion")
-
         return listaRankeada
 
-    def iniciarRanking(self,consulta):
+    def iniciarRanking(self,consultas):
         #Entrenar SVM
-        self.initSVM('Entrada/svmEntrenamiento.txt')
+        #self.initSVM('Entrada/svmEntrenamiento.txt')
 
         #Crear lista de documentos con relevancia
         self.crearListaConRelevancia('Entrada/listaRelevancia.txt')
 
-        #Ranking SVM
-        listaSvm = self.rankingSVM('Entrada/urls.txt',consulta)
+        listaSVMs = []
+        listasContribucion = []
+        listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
 
-        #Ranking Contribucion
-        listaContribucion = self.initCrank("EP",consulta)
+        for indice,consulta in enumerate(consultas):
+            print "Inicio consulta: " , indice+1 , "de", len(consultas), " ->",consulta
+            consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
+            listaSvm = self.rankingSVM(listaUrls,consulta)
+            listaSVMs.append(listaSvm)
+
+            listaContribucion = self.initCrank("EP",consulta.name,listaUrls)
+            listasContribucion.append(listaContribucion)
+
+        self.evaluarMetodos(listaSVMs,"svm")
+        self.evaluarMetodos(listasContribucion,"Contribucion")
 
 
-        listaFinal = self.rankingFinal(listaSvm,listaContribucion)
+
+        listaFinal = self.rankingFinal(listaSVMs,listasContribucion)
+        print
         print "Score Final"
-        self.escribirRanking("Salida/final.txt", listaFinal)
-        self.metricasEvaluacion(listaFinal,"Ranking Final")
+        #self.escribirRanking("Salida/final.txt", listaFinal)
+        self.evaluarMetodos(listaFinal,"Ranking Final")
+
+        self.imprimirListaTop10(listaSVMs, "RSVM")
+        self.imprimirListaTop10(listasContribucion, "Contribucion")
+        self.imprimirListaTop10(listaFinal,"Ranking Final")
 
     def rankingFinal(self, listaSvm, listaContribucion):
         listaFinal = []
-        for indice, url in enumerate(listaSvm):
-            documento = {}
-            documento['url'] = url['url']
-            documento['score'] = float(1) / float(indice + 1)
-            listaFinal.append(documento)
+        listaAux = []
+        for urlSvm, urlContribucion in zip(listaSvm,listaContribucion):
 
-        for indice, url in enumerate(listaContribucion):
-            for auxUrl in listaFinal:
-                if auxUrl['url'] == url['url']:
-                    auxUrl['score'] += float(1) / float(indice + 1)
+            for indice, url in enumerate(urlSvm):
+                if url not in listaAux:
+                    documento = {}
+                    documento['url'] = url['url']
+                    documento['score'] = float(1) / float(indice + 1)
+                    listaAux.append(documento)
+                else:
+                    self.setScore(listaAux,url,indice+1)
 
-        listaFinal = sorted(listaFinal, key=lambda k: k['score'], reverse=True)
+            for indice,url in enumerate(urlContribucion):
+                self.setScore(listaAux,url,indice+1)
+
+            listaAux = sorted(listaAux, key=lambda k: k['score'], reverse=True)
+            listaFinal.append(listaAux)
+            listaAux = []
         return listaFinal
+
+    def setScore(self,listaFinal,url,indice):
+        for documento in listaFinal:
+            if documento['url'] == url['url']:
+                documento['score'] += float(1) / float(indice)
 
     def interpolarPrecisionRecall(self, precisionRecall):
         recall = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
@@ -364,17 +418,42 @@ class RIController:
             precision.append(precisionRecall[-1][0])
         return precision
 
-    def metodosAlternativos(self,consulta):
+    def metodosAlternativos(self,consultas):
         # Crear lista de documentos con relevancia
         self.crearListaConRelevancia('Entrada/listaRelevancia.txt')
-
         listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls.txt")
-        consulta = self.preprocesamiento.crearDocumentoPattern(consulta, consulta)
 
-        self.rankingVectorSpaceModel(listaUrls,consulta)
-        self.enfoquePonderado(listaUrls,consulta)
-        self.calcularCrankOriginal(listaUrls,consulta)
+        VSM = []
+        EP = []
+        CRANK = []
 
+        for indice,consulta in enumerate(consultas):
+            print "Procesando " + str(indice+1) + " de " + str(len(consultas))
+            consulta = self.preprocesamiento.crearDocumentoPattern(consulta, consulta)
+            VSM.append(self.rankingVectorSpaceModel(listaUrls,consulta))
+            EP.append(self.enfoquePonderado(listaUrls,consulta))
+            CRANK.append(self.calcularCrankOriginal(listaUrls,consulta))
+
+        print "VSM"
+        self.evaluarMetodos(VSM,"VSM")
+
+        print
+        print "EnfoquePonderado"
+        self.evaluarMetodos(EP,"EnfoquePonderado")
+
+        print
+        print "Crank"
+        self.evaluarMetodos(CRANK,"Crank")
+
+        self.imprimirListaTop10(VSM,"VSM")
+        self.imprimirListaTop10(EP,"EnfoquePonderado")
+        self.imprimirListaTop10(CRANK,"Crank")
+
+    def obtenerPromedioTop(self,listaurls,metrica):
+        aux = 0
+        for valor in listaurls:
+            aux += valor[metrica]
+        return float(aux)/float(5)
 
     def rankingVectorSpaceModel(self, listaUrls, consulta):
         listaUrlsRankeados = []
@@ -385,12 +464,13 @@ class RIController:
                 score = self.preprocesamiento.calcularVectorSpaceModel(consulta,documentoPattern)
                 listaUrlsRankeados.append(self.crearJsonRanking(url,score))
 
-        listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
-        self.metricasEvaluacion(listaFinal,"Vector Space Model")
-        self.escribirRanking("Salida/vectorSpaceModel.txt", listaFinal)
+        listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=False)
+        return listaFinal
+        #self.metricasEvaluacion(listaFinal,"Vector Space Model")
+        #self.escribirRanking("Salida/vectorSpaceModel.txt", listaFinal)
 
 
-    def enfoquePonderado(self, listaUrls, consulta,tema = "Tea"):
+    def enfoquePonderado(self, listaUrls, consulta, tema = "ISP"):
         listaUrlsRankeados = []
         diccionario = self.crank.getDiccionarioDominio(tema)
         for url in listaUrls:
@@ -401,8 +481,9 @@ class RIController:
                 listaUrlsRankeados.append(self.crearJsonRanking(url,score))
 
         listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
-        self.metricasEvaluacion(listaFinal,"Enfoque Ponderado")
-        self.escribirRanking("Salida/enfoqueponderado.txt", listaFinal)
+        return listaFinal
+        #self.metricasEvaluacion(listaFinal,"Enfoque Ponderado")
+        #self.escribirRanking("Salida/enfoqueponderado.txt", listaFinal)
 
     def crearJsonRanking(self,url,score):
         documento = {}
@@ -421,11 +502,45 @@ class RIController:
                 listaUrlsRankeados.append(self.crearJsonRanking(url,score))
 
         listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
-        self.metricasEvaluacion(listaFinal, "Crank")
-        self.escribirRanking("Salida/crankOriginal.txt", listaFinal)
+        return listaFinal
+        #self.metricasEvaluacion(listaFinal, "Crank")
+        #self.escribirRanking("Salida/crankOriginal.txt", listaFinal)
 
     def promedioTop(self, listaRelevancia,top):
         contador = 0
         for url in listaRelevancia[:top]:
             contador += int(url['relevancia'])
         return float(contador)/float(top)
+
+    def obtenerMetrica(self, listaurls, metrica):
+        valores = []
+        for unaMetrica in listaurls:
+            valores.append(unaMetrica[metrica])
+        valoresFinales = []
+        for m1, m2, m3, m4, m5 in zip(valores[0], valores[1], valores[2], valores[3], valores[4]):
+            suma = float(m1) + float(m2) + float(m3) + float(m4) + float(m5)
+            valoresFinales.append(suma / float(5))
+
+
+        return valoresFinales
+
+    def evaluarMetodos(self, rankings, metodo):
+        metrica = []
+        for ranking in rankings:
+            metrica.append(self.metricasEvaluacion(ranking,metodo))
+
+        print metodo
+        print "Presicion/Recall", self.obtenerMetrica(metrica, "interpolacion")
+        print "FMeasure", self.obtenerMetrica(metrica, "f-medida")
+        print "Map", self.obtenerMetrica(metrica, "map")
+        print "top", self.obtenerPromedioTop(metrica, "top5"),",",self.obtenerPromedioTop(metrica, "top10"),",",self.obtenerPromedioTop(metrica, "top15"),",", self.obtenerPromedioTop(metrica, "top20")
+        print "\n\n"
+
+
+    def imprimirListaTop10(self,lista,nombre):
+        print "INICIO ", nombre
+        for listaDocumentos in lista:
+            for documento in listaDocumentos[:10]:
+                relevancia = self.mongodb.getDocumentosRelevancia(documento['url'])
+                print documento['url'],";",documento['score'],";",relevancia['relevancia']
+            print

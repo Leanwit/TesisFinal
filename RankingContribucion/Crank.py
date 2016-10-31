@@ -27,7 +27,7 @@ class Crank:
             json['target'] = unaLinea[0]
             return json
 
-    def calcularRelevancia(self, consulta, tema = "Tea",listaUrls = []):
+    def calcularRelevancia(self, consulta, tema = "Tree",listaUrls = []):
         diccionario = self.getDiccionarioDominio(tema)
         consultaPattern = self.preprocesamiento.crearDocumentoPattern(consulta,"Consulta")
 
@@ -64,7 +64,7 @@ class Crank:
                     aciertoNegativo += frecuencia
 
         if aciertoClave + aciertoPositivo + aciertoNegativo:
-            puntajeFinal = float(aciertoClave + aciertoPositivo * 0.75 + aciertoNegativo * 0.50) / float(
+            puntajeFinal = float(aciertoClave + aciertoPositivo * 0.75 + aciertoNegativo * 0.20) / float(
                 aciertoClave + aciertoPositivo + aciertoNegativo)
         else:
             puntajeFinal = 0

@@ -175,19 +175,26 @@ class preprocesamientoController:
                             consultaClase['clase'] = clase
                             if documentoPattern:
                                 self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
-                                listaUrls.append(url)
+                                listaUrls.append([url,consulta])
         self.mongoDb.eliminarDocumentosSinContenido()
         return listaUrls
 
     def lecturaSVMRanking(self,listaUrls,consulta):
+        bandera = True
         for url in listaUrls:
-            doc = self.mongoDb.getDocumentoParam({"url": url, "consultasClases.consulta": consulta})
-            if not doc:
-                documentoPattern = self.crearDocumentoSVM(url)
-                consultaClase = {}
-                consultaClase['consulta'] = consulta
-                if documentoPattern:
+            doc = self.mongoDb.getDocumento(url)
+            if doc:
+                if "consultasClase" in doc:
+                    for unaConsulta in doc['consultasClase']:
+                        if unaConsulta['consulta'] == consulta:
+                            bandera = False
+                if bandera:
+                    documentoPattern = self.getDocumentoPattern(doc['_id'])
+                    consultaClase = {}
+                    consultaClase['consulta'] = consulta.name
                     self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
+            else:
+                print "No existe ", url
         self.mongoDb.eliminarDocumentosSinContenido()
 
     def crearDocumentoPattern(self,contenido,name = ""):
@@ -227,10 +234,10 @@ class preprocesamientoController:
 
     def obtenerVectorSpaceModel(self, url,consulta):
         documento = self.mongoDb.getDocumento(url)
-        if documento:
-            for consultasClase in documento['consultasClase']:
-                if consultasClase['consulta'] == consulta:
-                    return consultasClase['atributos']['queryVectorSpaceModelDocumento']
+        documento1 = self.getDocumentoPattern(documento['_id'])
+        documento2 = self.crearDocumentoPattern(consulta,consulta)
+        if documento and documento1:
+            return self.calcularVectorSpaceModel(documento1,documento2)
         return 1
 
     def leerArchivoUrl(self,path):

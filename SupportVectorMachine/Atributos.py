@@ -148,23 +148,41 @@ class Atributos:
             return 0
 
     def calcularAtributosCorpus(self,modelos, unaConsulta,listaDocumentos):
-
         for unModelo in modelos:
-            self.calcularAtributosCorpusSum(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
-            self.calcularAtributosCorpusMin(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
-            self.calcularAtributosCorpusMax(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
-            self.calcularAtributosCorpusProm(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
+            print unModelo
+            self.calcularAtributosTFIDFCorpus(modelos[unModelo], unModelo, unaConsulta,listaDocumentos)
 
-
-
-
-    def calcularAtributosCorpusSum(self,modelo, atributo, consulta,listaDocumentos):
-        contador = 0
+    def calcularAtributosTFIDFCorpus(self,modelo, atributo, consulta,listaDocumentos):
         for indice, unDocumento in enumerate(modelo):
+            sum = 0
+            max = 0
+            min = 10
             for unaConsulta in consulta:
-                contador += unDocumento.tfidf(unaConsulta)
-            mongodb.setDocumentoAtributo(consulta,listaDocumentos[indice],'querySumTfidf'+self.getNameAtributo(atributo),contador)
-            #print 'querySumTfidf'+self.getNameAtributo(atributo) , " - " ,contador
+                valorTFIDF = unDocumento.tfidf(unaConsulta)
+                sum += valorTFIDF
+                max = self.getMax(valorTFIDF,max)
+                min = self.getMin(valorTFIDF,min)
+
+            if min == 10:
+                min = 0
+            prom =  float(sum) / float(len(consulta))
+            mongodb.setDocumentoAtributo(consulta.name,listaDocumentos[indice],'querySumTfidf'+self.getNameAtributo(atributo),sum)
+            mongodb.setDocumentoAtributo(consulta.name,listaDocumentos[indice],'queryMaxTfidf'+self.getNameAtributo(atributo),max)
+            mongodb.setDocumentoAtributo(consulta.name,listaDocumentos[indice],'queryMinTfidf'+self.getNameAtributo(atributo),min)
+            mongodb.setDocumentoAtributo(consulta.name,listaDocumentos[indice],'queryPromTfidf'+self.getNameAtributo(atributo),prom)
+
+
+    def getMax(self,valorNuevo,valorViejo):
+        if valorNuevo > valorViejo:
+            return valorNuevo
+        return valorViejo
+
+    def getMin(self,valorNuevo,valorViejo):
+        if valorNuevo > 0 :
+            if valorNuevo < valorViejo:
+                return valorNuevo
+        return valorViejo
+
 
     def calcularAtributosCorpusMax(self, modelo, atributo, consulta, listaDocumentos):
         for indice, unDocumento in enumerate(modelo):
