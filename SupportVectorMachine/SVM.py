@@ -143,7 +143,6 @@ class SVM:
 
 
     def crearAtributosGrupales(self,listaAtributos,listaConsultas):
-        #consultas = self.mongodb.obtenerTodasLasConsultas()
         for consulta in listaConsultas:
             listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))
             listaAtributos = self.mongodb.getAtributosPorConsulta(consulta)
@@ -157,9 +156,6 @@ class SVM:
                     listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
                     listaDocumentos.append(documento)
 
-
-
-            print "Inicio Modelos"
             modelos = {}
             modelos['documento'] = self.preprocesamiento.crearModelo(listaDocumentosHtml)
             modelos['body'] = self.preprocesamiento.crearModelo(listaDocumentosBody)
@@ -172,7 +168,6 @@ class SVM:
             unAtributo.calcularAtributosCorpus(modelos,consulta.name,listaDocumentos)
 
     def crearAtributosGrupalesRanking(self,listaUrls,consulta):
-        print "init1"
         listaAtributos = []
         for url in listaUrls:
             documento = self.mongodb.getDocumento(url)
@@ -184,7 +179,6 @@ class SVM:
                             atributos['doc'] = documento['id']
                             atributos['atributo'] = unaConsulta['atributos']
                             listaAtributos.append(atributos)
-        print "init2"
 
 
         listaDocumentosHtml, listaDocumentosBody, listaDocumentosUrlValues, listaDocumentosTitle, listaDocumentosID = ([] for i in range(5))
@@ -198,19 +192,16 @@ class SVM:
                 listaDocumentosTitle.append(self.preprocesamiento.crearDocumentoPattern(documento['titulo']))
                 listaDocumentos.append(documento)
 
-        print "init3"
         modelos = {}
         modelos['documento'] = self.preprocesamiento.crearModelo(listaDocumentosHtml)
         modelos['body'] = self.preprocesamiento.crearModelo(listaDocumentosBody)
         modelos['urlValues'] = self.preprocesamiento.crearModelo(listaDocumentosUrlValues)
         modelos['title'] = self.preprocesamiento.crearModelo(listaDocumentosTitle)
-        print "init4"
 
         consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
         unAtributo = Atributos()
 
         unAtributo.calcularAtributosCorpus(modelos,consulta,listaDocumentos)
-        print "init5"
 
     def urlDocumento(self,unDocumentoPattern):
         '''Expresion regular para separar en una lista los fragmentos de la url'''
@@ -235,16 +226,17 @@ class SVM:
                     if consulta == consultaClase['consulta']:
                         if 'clase' in consultaClase:
                             aux = []
-                            for atributo in consultaClase['atributos']:
-                                aux.append(consultaClase['atributos'][atributo])
-                            if len(aux) == 30:
-                                print doc['url']
-                            X.append(aux)
-                            if int(consultaClase['clase']) > relevancia :
-                                y = 1
-                            else:
-                                y = 0
-                            Y.append(y)
+                            if "atributos" in consultaClase:
+                                for atributo in consultaClase['atributos']:
+                                    aux.append(consultaClase['atributos'][atributo])
+                                if len(aux) == 30:
+                                    print doc['url']
+                                X.append(aux)
+                                if int(consultaClase['clase']) > relevancia :
+                                    y = 1
+                                else:
+                                    y = 0
+                                Y.append(y)
 
         puntos['X'] = X
         puntos['Y'] = Y
@@ -279,12 +271,10 @@ class SVM:
                         if aux:
                             X.append(aux)
                             name.append(url)
-
                             if len(aux) == 30:
                                 print doc['url'],consulta
                         else:
                             print "Sin Atributos" + url
-
         puntos = {}
         puntos['X'] = X
         puntos['name'] = name

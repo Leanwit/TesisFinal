@@ -25,9 +25,6 @@ class preprocesamientoController:
             self.crearDocumento(url)
             self.listaUrls.append(url)
 
-
-
-
     def eliminarDuplicados(self):
         """ Eliminacion de urls duplicados """
         listaUrlsAux = []
@@ -52,7 +49,6 @@ class preprocesamientoController:
 
     def crearDocumentoSVM(self,url):
         ''' Se obtiene valores del html para los atributos del svm. La descarga entra en cache'''
-
         contenido = self.descargarContenido(url)
         if contenido:
             documento = self.insertarDocumento(url, contenido)
@@ -60,6 +56,7 @@ class preprocesamientoController:
             return documento
 
     def agregarInformacionDocumento(self,url,contenido):
+        """Metodo para obtener diferentes partes del documento"""
         try:
             unaUrl = URL(url)
             if not 'pdf' in extension(unaUrl.page):
@@ -73,6 +70,7 @@ class preprocesamientoController:
                 body = self.verificarContenidoVacio(body)
                 urlValues = self.verificarContenidoVacio(urlValues)
                 titulo = self.verificarContenidoVacio(titulo)
+
                 self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
             else:
                 html = self.verificarContenidoVacio(contenido)
@@ -84,24 +82,28 @@ class preprocesamientoController:
             print str(e)
 
     def getBody(self,unElemento):
+        """ Metodo para obtener el cuerpo del documento web. """
         body = ""
         for unBody in unElemento.by_tag('body'):
             body += unBody.source
         return body
 
     def getUrlValues(self,unElemento):
+        """Metodo para obtener todas las urls dentro del documento web"""
         urlValues = ""
         for unValueUrl in unElemento('a:first-child'):
             urlValues += plaintext(unValueUrl.content) + " - "
         return urlValues
 
     def getTitulo(self,unElemento):
+        """Metodo para obtener el titulo del documento web"""
         titulo = ""
         if unElemento.by_tag('title'):
             titulo = unElemento.by_tag('title')[0].content
         return titulo
 
     def descargarContenido(self,url):
+        """Metodo para descargar el contenido de los documentos webs siendo url o pdf"""
         try:
             unaUrl = URL(url)
             if "pdf" in extension(unaUrl.page):
@@ -130,6 +132,8 @@ class preprocesamientoController:
                 print url
 
     def descargarPDF(self,url):
+        """Metodo para descargar contenido de un pdf.
+        Se descarga el archivo, se utilza la libreria pdf2txt para transformar el pdf en texto plano"""
         document = open(os.path.dirname(os.path.abspath(__file__)) + '/temp.pdf', 'w')
         document.close()
         download = url.download()
@@ -141,6 +145,7 @@ class preprocesamientoController:
         return txtContent
 
     def urlLibDescarga(self,url):
+        '''Metodo para descargar archivo mediante urllib2'''
         response = urllib2.urlopen(url)
         html = response.read()
         return html
@@ -154,6 +159,7 @@ class preprocesamientoController:
         return unDocumento
 
     def lecturaSVM(self,path):
+        '''Lectura del archivo SVM para el entrenamiento'''
         listaUrls = []
         archivo = open(path, 'r').read()
         for unaLinea in archivo.split("\n"):
@@ -198,9 +204,11 @@ class preprocesamientoController:
         self.mongoDb.eliminarDocumentosSinContenido()
 
     def crearDocumentoPattern(self,contenido,name = ""):
+        '''Creacion de documentos eliminando stopwords, aplicando stemming y peso de frecuencias TFIDF'''
         return Document(contenido,name=name,stemmer=PORTER,stopwords=True,weigth=TFIDF)
 
     def crearModelo(self,listaDocumentos):
+        '''Crear modelo de listas de documentos utilizando calculo de frencuencias TFIDF'''
         return Model(listaDocumentos, weight=TFIDF)
 
     def verificarContenidoVacio(self, param):
@@ -233,11 +241,11 @@ class preprocesamientoController:
         return Document.load("DocumentoPattern/" + str(id))
 
     def obtenerVectorSpaceModel(self, url,consulta):
-        documento = self.mongoDb.getDocumento(url)
-        documento1 = self.getDocumentoPattern(documento['_id'])
-        documento2 = self.crearDocumentoPattern(consulta,consulta)
-        if documento and documento1:
-            return self.calcularVectorSpaceModel(documento1,documento2)
+        docBD = self.mongoDb.getDocumento(url)
+        documento = self.getDocumentoPattern(docBD['_id'])
+        consulta = self.crearDocumentoPattern(consulta,consulta)
+        if docBD and documento:
+            return self.calcularVectorSpaceModel(documento,consulta)
         return 1
 
     def leerArchivoUrl(self,path):

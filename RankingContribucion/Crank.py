@@ -20,6 +20,7 @@ class Crank:
         return listaUrls
 
     def limpiarLineaCrank(self,linea):
+        '''Metodo que limpia las lineas del archivo generado por el crawler'''
         unaLinea = linea.split("INFO:root:;")[1].split(";From;")
         if len(unaLinea) == 2:
             json = {}
@@ -27,7 +28,8 @@ class Crank:
             json['target'] = unaLinea[0]
             return json
 
-    def calcularRelevancia(self, consulta, tema = "Tree",listaUrls = []):
+    def calcularRelevancia(self, consulta, tema = "Tea",listaUrls = []):
+        '''Metodo para calcular la relevancia'''
         diccionario = self.getDiccionarioDominio(tema)
         consultaPattern = self.preprocesamiento.crearDocumentoPattern(consulta,"Consulta")
 
@@ -45,10 +47,12 @@ class Crank:
 
 
     def getDiccionarioDominio(self, diccionario):
+        '''Metodo para obotener el diccionario de dominio segun el tema y transformarlo en un documento pattern'''
         archivo = open("RankingContribucion/dd"+diccionario+".txt","r")
         return self.preprocesamiento.crearDocumentoPattern(archivo.read(),"diccionarioDominio")
 
-    def calcularEnfoquePonderado(self,documento,consulta,diccionario):
+    def calcularEnfoquePonderado(self,documento,consulta,diccionario, AN =0.20):
+        '''Calculo del enfoque ponderado'''
         aciertoClave = 0
         aciertoPositivo = 0
         aciertoNegativo = 0
@@ -64,7 +68,7 @@ class Crank:
                     aciertoNegativo += frecuencia
 
         if aciertoClave + aciertoPositivo + aciertoNegativo:
-            puntajeFinal = float(aciertoClave + aciertoPositivo * 0.75 + aciertoNegativo * 0.20) / float(
+            puntajeFinal = float(aciertoClave + aciertoPositivo * 0.75 + aciertoNegativo * AN) / float(
                 aciertoClave + aciertoPositivo + aciertoNegativo)
         else:
             puntajeFinal = 0
@@ -97,6 +101,7 @@ class Crank:
                 self.mongodb.setearRelevanciaCrank(doc.name,scoreRelevance)
 
     def coord(self, documento, consulta):
+        '''Puntaje coord utilizando en el crank para el calculo de relevancia'''
         contador = 0
         for word in consulta:
             if word in documento.words:
@@ -104,12 +109,14 @@ class Crank:
         return (float(contador) / float(len(consulta)))
 
     def norm(self, documento, un_termino):
+        '''Puntaje norm utilizando en el crank para el calculo de relevancia'''
         valor = 0
         if un_termino in documento.words:
             valor = documento.tf(un_termino)
         return valor
 
-    def calcularScoreContribucion(self,listaUrls):
+    def calcularScoreContribucion(self,listaUrls, atributo = "relevanciaEnfoquePonderado"):
+        '''Calculo del puntaje de contribucion'''
         listaDocumentos = self.getAllInlinks(listaUrls)
         while listaDocumentos != listaUrls:
             listaUrls = copy.copy(listaDocumentos)
@@ -119,10 +126,11 @@ class Crank:
         for unDocumento in listaDocumentos:
             unDocumento = self.mongodb.getDocumento(unDocumento)
             if unDocumento:
-                unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados)
+                unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados,atributo)
                 self.mongodb.setearRelevanciaContribucion(unDocumento['url'],unDocumento['scoreContribucion'])
 
     def calcularScoreContribucionRecursividad(self, doc, nivel, analizados, atributo = "relevanciaEnfoquePonderado"):
+        '''Metodo recursivo para ir calculando los puntajes del grafo hasta 3 niveles'''
         score = 0
         if nivel < 4:
             if not doc in analizados:
@@ -130,7 +138,7 @@ class Crank:
                 if 'inlinks' in doc:
                     for inlink in doc['inlinks']:
                         inlink = self.mongodb.getDocumento(inlink)
-                        score += self.calcularScoreContribucionRecursividad(inlink, nivel + 1, analizados)
+                        score += self.calcularScoreContribucionRecursividad(inlink, nivel + 1, analizados,atributo)
                         if "inlinks" in inlink:
                             score_inlink = 0
                             for aux_inlink in inlink['inlinks']:
@@ -141,14 +149,17 @@ class Crank:
 
         return score
 
-    def calcularPuntajeFinal(self,listaUrls,consulta,atributo = "relevanciaEnfoquePonderado"):
+    def calcularPuntajeFinal(self,listaUrls,consulta,atributo = "relevanciaEnfoquePonderado",parametro=""):
+        if parametro == "":
+            parametro = 0.20
+
         listaUrlsPonderados = []
         for unaUrl in listaUrls:
             documento = self.mongodb.getDocumento(unaUrl)
             if documento:
                 scoreRelevance = documento[atributo]
                 scoreContribucion = documento['relevanciaContribucion']
-                scoreFinal = 0.80 * scoreRelevance + 0.20 * scoreContribucion
+                scoreFinal = (1-parametro) * scoreRelevance + parametro * scoreContribucion
 
                 urlPonderado = {}
                 urlPonderado['url'] = unaUrl
@@ -159,6 +170,7 @@ class Crank:
         return listaNueva
 
     def getAllInlinks(self, listaUrls):
+        '''metodo para obtener todos los enlaces entrantes de un documento web'''
         listaCalculo = []
         for url in listaUrls:
             if url not in listaCalculo:
