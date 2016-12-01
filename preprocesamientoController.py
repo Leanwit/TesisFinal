@@ -6,7 +6,7 @@ import os
 import commands
 from pyPdf import PdfFileWriter, PdfFileReader
 
-
+from pattern.en import Sentence,parse
 class preprocesamientoController:
 
     listaUrls = []
@@ -199,8 +199,7 @@ class preprocesamientoController:
                     consultaClase = {}
                     consultaClase['consulta'] = consulta.name
                     self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
-            else:
-                print "No existe ", url
+
         self.mongoDb.eliminarDocumentosSinContenido()
 
     def crearDocumentoPattern(self,contenido,name = ""):

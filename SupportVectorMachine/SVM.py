@@ -109,8 +109,6 @@ class SVM:
                         listaAtributos.append(atributo)
                         listaProcesados.append(url)
 
-
-
         self.crearAtributosGrupalesRanking(listaUrls,consulta.name)
         return listaProcesados
 
