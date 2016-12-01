@@ -261,4 +261,27 @@ class MongoDb:
 
     def eliminarBdRelevancia(self):
         self.db.relevancia.delete_many({})
-        print "Eliminado Relevancia"
+
+    def crearTFIDF(self, url, valorTF):
+        '''Metodo para guardar los valores TFIDF en la base de datos'''
+        self.db.documento.update_one(
+            {"url": url},
+            {
+                "$set": {
+                    "TFIDF": valorTF
+                },
+                "$currentDate": {"lastModified": True}
+            }
+        )
+        pass
+
+    def getTFIDF(self,url):
+        '''Metodo para obtener el valor TFIDF de una url'''
+        cursor = self.db.documento.find({"url": url})
+        if cursor[0]:
+            if 'TFIDF' in cursor[0]:
+                return cursor[0]['TFIDF']
+            else:
+                return 0
+        else:
+            return 0
