@@ -28,22 +28,28 @@ class Crank:
             json['target'] = unaLinea[0]
             return json
 
-    def calcularRelevancia(self, consulta, tema = "Tea",listaUrls = []):
+    def calcularRelevancia(self, consulta, tema="Tea", listaUrls=[], parametrosCrank=[]):
         '''Metodo para calcular la relevancia'''
         diccionario = self.getDiccionarioDominio(tema)
-        consultaPattern = self.preprocesamiento.crearDocumentoPattern(consulta,"Consulta")
+        consultaPattern = self.preprocesamiento.crearDocumentoPattern(consulta, "Consulta")
 
         listaDocumentos = self.getAllInlinks(listaUrls)
         while listaDocumentos != listaUrls:
             listaUrls = copy.copy(listaDocumentos)
             listaDocumentos = self.getAllInlinks(listaUrls)
 
-        for unDocumento in listaDocumentos:
-            unDocumento = self.mongodb.getDocumento(unDocumento)
-            if unDocumento:
-                documentoPattern = self.preprocesamiento.getDocumentoPattern(unDocumento['_id'])
-                puntajeFinal = self.calcularEnfoquePonderado(documentoPattern,consultaPattern,diccionario)
-                self.mongodb.setearRelevanciaEnfoquePonderado(unDocumento['url'],puntajeFinal)
+        listaModelo = []
+        for unDoc in listaDocumentos:
+            docBD = self.mongodb.getDocumento(unDoc)
+            if docBD:
+                unDocumento = self.preprocesamiento.getDocumentoPattern(docBD['_id'])
+                listaModelo.append(unDocumento)
+
+        unModelo = Model(listaModelo, weight=TFIDF)
+
+        for unDocumento in unModelo:
+            puntajeFinal = self.calcularEnfoquePonderado(unDocumento, consultaPattern, diccionario,parametrosCrank)
+            self.mongodb.setearRelevanciaEnfoquePonderado(unDocumento.name, puntajeFinal)
 
 
     def getDiccionarioDominio(self, diccionario):
@@ -51,7 +57,7 @@ class Crank:
         archivo = open("RankingContribucion/dd"+diccionario+".txt","r")
         return self.preprocesamiento.crearDocumentoPattern(archivo.read(),"diccionarioDominio")
 
-    def calcularEnfoquePonderado(self,documento,consulta,diccionario, AN =0.20):
+    def calcularEnfoquePonderado(self,documento,consulta,diccionario, parametrosCrank = []):
         '''Calculo del enfoque ponderado'''
         aciertoClave = 0
         aciertoPositivo = 0
@@ -68,19 +74,20 @@ class Crank:
                     aciertoNegativo += frecuencia
 
         if aciertoClave + aciertoPositivo + aciertoNegativo:
-            puntajeFinal = float(aciertoClave + aciertoPositivo * 0.75 + aciertoNegativo * AN) / float(
+            puntajeFinal = float(aciertoClave * float(parametrosCrank['AC']) + aciertoPositivo * float(parametrosCrank['AP']) + aciertoNegativo * float(parametrosCrank['AN'])) / float(
                 aciertoClave + aciertoPositivo + aciertoNegativo)
         else:
             puntajeFinal = 0
         return puntajeFinal
 
-    def calcularRelevanciaCrank(self,consulta,listaUrls):
+    def calcularRelevanciaCrank(self,consulta,listaUrls, tema = ""):
+        '''Metodo para calcular la relevancia del Crank'''
         consultaDocumento = self.preprocesamiento.crearDocumentoPattern(consulta,"consulta")
 
         listaDocumentos = self.getAllInlinks(listaUrls)
         while listaDocumentos != listaUrls:
             listaUrls = copy.copy(listaDocumentos)
-            listaDocumentos = self.getAllInlinks(listaUrls)
+            listaDocumentos = self.getAllInlinks(listaDocumentos)
 
         listaDocumentosPattern = []
         for doc in listaDocumentos:
@@ -88,17 +95,25 @@ class Crank:
             if doc:
                 documentoPattern = self.preprocesamiento.getDocumentoPattern(doc['_id'])
                 listaDocumentosPattern.append(documentoPattern)
+
         modelo = self.preprocesamiento.crearModelo(listaDocumentosPattern)
 
-        for doc in listaDocumentos:
-            doc = self.mongodb.getDocumento(doc)
-            if doc:
-                doc = self.preprocesamiento.getDocumentoPattern(doc['_id'])
-                scoreRelevance = 0
-                var_coord = self.coord(doc, consultaDocumento)
-                for unTermino in consultaDocumento:
-                    scoreRelevance += doc.tfidf(unTermino) * self.norm(doc, unTermino) * var_coord
-                self.mongodb.setearRelevanciaCrank(doc.name,scoreRelevance)
+        for doc in modelo:
+            #doc = self.preprocesamiento.getDocumentoPattern(doc['_id'])
+            scoreRelevance = 0
+            var_coord = self.coord(doc, consultaDocumento)
+            for unTermino in consultaDocumento:
+                scoreRelevance += doc.tfidf(unTermino) * self.norm(doc, unTermino) * var_coord
+
+            scoreDicc = 0
+            if tema != "":
+                diccionario = self.getDiccionarioDominio(tema)
+                var_coord = self.coord(doc,diccionario)
+                for unTermino in diccionario:
+                    scoreDicc += doc.tfidf(unTermino) * self.norm(doc,unTermino) * var_coord
+
+            scoreRelevance = scoreRelevance + (scoreDicc * 0.5)
+            self.mongodb.setearRelevanciaEnfoquePonderado(doc.name, scoreRelevance)
 
     def coord(self, documento, consulta):
         '''Puntaje coord utilizando en el crank para el calculo de relevancia'''
@@ -115,7 +130,7 @@ class Crank:
             valor = documento.tf(un_termino)
         return valor
 
-    def calcularScoreContribucion(self,listaUrls, atributo = "relevanciaEnfoquePonderado"):
+    def calcularScoreContribucion(self,listaUrls, atributo = "relevanciaEnfoquePonderado",parametrosCrank = []):
         '''Calculo del puntaje de contribucion'''
         listaDocumentos = self.getAllInlinks(listaUrls)
         while listaDocumentos != listaUrls:
@@ -126,13 +141,13 @@ class Crank:
         for unDocumento in listaDocumentos:
             unDocumento = self.mongodb.getDocumento(unDocumento)
             if unDocumento:
-                unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados,atributo)
+                unDocumento['scoreContribucion'] = self.calcularScoreContribucionRecursividad(unDocumento,0,analizados,atributo,nivelAEvaluar = int(parametrosCrank['niveles']))
                 self.mongodb.setearRelevanciaContribucion(unDocumento['url'],unDocumento['scoreContribucion'])
 
-    def calcularScoreContribucionRecursividad(self, doc, nivel, analizados, atributo = "relevanciaEnfoquePonderado"):
+    def calcularScoreContribucionRecursividad(self, doc, nivel, analizados, atributo = "relevanciaEnfoquePonderado",nivelAEvaluar = 3):
         '''Metodo recursivo para ir calculando los puntajes del grafo hasta 3 niveles'''
         score = 0
-        if nivel < 4:
+        if nivel < nivelAEvaluar:
             if not doc in analizados:
                 analizados.append(doc)
                 if 'inlinks' in doc:
@@ -149,7 +164,7 @@ class Crank:
 
         return score
 
-    def calcularPuntajeFinal(self,listaUrls,consulta,atributo = "relevanciaEnfoquePonderado",parametro=""):
+    def calcularPuntajeFinal(self,listaUrls,atributo = "relevanciaEnfoquePonderado",parametro=""):
         if parametro == "":
             parametro = 0.20
 
@@ -159,7 +174,7 @@ class Crank:
             if documento:
                 scoreRelevance = documento[atributo]
                 scoreContribucion = documento['relevanciaContribucion']
-                scoreFinal = (1-parametro) * scoreRelevance + parametro * scoreContribucion
+                scoreFinal = ((1-float(parametro['factorContribucion'])) * scoreRelevance) + (float(parametro['factorContribucion']) * scoreContribucion)
 
                 urlPonderado = {}
                 urlPonderado['url'] = unaUrl
@@ -181,7 +196,6 @@ class Crank:
                     for inlink in documento['inlinks']:
                         if not inlink in listaCalculo:
                             listaCalculo.append(inlink)
-
         return listaCalculo
 
 
