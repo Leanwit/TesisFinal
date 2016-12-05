@@ -10,9 +10,10 @@ from pattern.en import Sentence,parse
 class preprocesamientoController:
 
     listaUrls = []
-    mongoDb = MongoDb()
+
 
     def __init__(self,nombreArchivo =""):
+            self.mongodb = MongoDb()
             if nombreArchivo:
                 self.leerArchivo(nombreArchivo)
                 self.eliminarDuplicados()
@@ -71,13 +72,13 @@ class preprocesamientoController:
                 urlValues = self.verificarContenidoVacio(urlValues)
                 titulo = self.verificarContenidoVacio(titulo)
 
-                self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
+                self.mongodb.setInformacionDocumento(html,url,titulo,urlValues,body)
             else:
                 html = self.verificarContenidoVacio(contenido)
                 body = ""
                 urlValues = ""
                 titulo = ""
-                self.mongoDb.setInformacionDocumento(html,url,titulo,urlValues,body)
+                self.mongodb.setInformacionDocumento(html,url,titulo,urlValues,body)
         except Exception as e:
             print str(e)
 
@@ -153,7 +154,7 @@ class preprocesamientoController:
     def insertarDocumento(self,url,contenido):
         """ Crea registro en mongodb y un archivo Pattern Document"""
         unDocumento = Document(contenido, name=url,stopwords=True, stemming=PORTER,weigth=TFIDF)
-        result = self.mongoDb.crearDocumento(unDocumento)
+        result = self.mongodb.crearDocumento(unDocumento)
         if result:
             unDocumento.save("DocumentoPattern/" + str(result.inserted_id))
         return unDocumento
@@ -170,7 +171,7 @@ class preprocesamientoController:
                 if len(campos) > 2:
                     clase = campos[2]
                     if clase and url:
-                        documento = self.mongoDb.getDocumento(url)
+                        documento = self.mongodb.getDocumento(url)
                         if not documento:
                             documentoPattern = self.crearDocumentoSVM(url)
                         else:
@@ -180,15 +181,15 @@ class preprocesamientoController:
                             consultaClase['consulta'] = consulta
                             consultaClase['clase'] = clase
                             if documentoPattern:
-                                self.mongoDb.setearRelevancia(documentoPattern.name,consultaClase)
+                                self.mongodb.setearRelevancia(documentoPattern.name,consultaClase)
                                 listaUrls.append([url,consulta])
-        self.mongoDb.eliminarDocumentosSinContenido()
+        self.mongodb.eliminarDocumentosSinContenido()
         return listaUrls
 
     def lecturaSVMRanking(self,listaUrls,consulta):
         bandera = True
         for url in listaUrls:
-            doc = self.mongoDb.getDocumento(url)
+            doc = self.mongodb.getDocumento(url)
             if doc:
                 if "consultasClase" in doc:
                     for unaConsulta in doc['consultasClase']:
@@ -198,9 +199,9 @@ class preprocesamientoController:
                     documentoPattern = self.getDocumentoPattern(doc['_id'])
                     consultaClase = {}
                     consultaClase['consulta'] = consulta.name
-                    self.mongoDb.setearRelevancia(documentoPattern.name, consultaClase)
+                    self.mongodb.setearRelevancia(documentoPattern.name, consultaClase)
 
-        self.mongoDb.eliminarDocumentosSinContenido()
+        self.mongodb.eliminarDocumentosSinContenido()
 
     def crearDocumentoPattern(self,contenido,name = ""):
         '''Creacion de documentos eliminando stopwords, aplicando stemming y peso de frecuencias TFIDF'''
@@ -239,13 +240,7 @@ class preprocesamientoController:
     def getDocumentoPattern(self, id):
         return Document.load("DocumentoPattern/" + str(id))
 
-    def obtenerVectorSpaceModel(self, url,consulta):
-        docBD = self.mongoDb.getDocumento(url)
-        documento = self.getDocumentoPattern(docBD['_id'])
-        consulta = self.crearDocumentoPattern(consulta,consulta)
-        if docBD and documento:
-            return self.calcularVectorSpaceModel(documento,consulta)
-        return 1
+
 
     def leerArchivoUrl(self,path):
         listaUrls = []
@@ -255,6 +250,23 @@ class preprocesamientoController:
                 listaUrls.append(self.limpiarUrl(unaLinea))
         return listaUrls
 
-    def calcularVectorSpaceModel(self, doc1, doc2):
-        return distance(doc1.vector,doc2.vector,method=COSINE)
 
+
+    def crearListaConRelevancia(self,path):
+        self.mongodb.eliminarBdRelevancia()
+        archivo = open(path,"r")
+        for unaLinea in archivo.readlines():
+            if unaLinea:
+                campos = unaLinea.split("	,	")
+                url = self.limpiarUrl(campos[0])
+                relevancia = campos[1].split("\n")[0]
+
+                self.mongodb.crearDocumentoRelevancia(url,relevancia)
+
+    def limpiarListaUrls(self, listaUrls, urls):
+        """limpiar lista de urls que no lograron descargarse"""
+        nuevaLista = []
+        for url in listaUrls:
+            if url in urls:
+                nuevaLista.append(url)
+        return nuevaLista

@@ -4,7 +4,7 @@ from preprocesamientoController import *
 import numpy as np
 from sklearn.externals import joblib
 from Model.mongodb import *
-from pattern.vector import Model
+from pattern.vector import Model , distance, COSINE
 
 class RIController:
 
@@ -12,21 +12,13 @@ class RIController:
 
     isRelevante = 2
     mongodb = MongoDb()
-    crank = Crank()
+    rc = RC()
 
     def __init__(self):
+        self.svm = SVM()
         self.svmNoRelevante = SVM()
         self.svmRelevante = SVM()
         self.svmMuyRelevante = SVM()
-
-    def limpiarListaUrls(self, listaUrls, urls):
-        """limpiar lista de urls que no lograron descargarse"""
-        nuevaLista = []
-        for url in listaUrls:
-            if url in urls:
-                nuevaLista.append(url)
-        return nuevaLista
-
 
     def recall(self,top = 10, listaDocumentos = [],cantidadDocRelevantes = 0):
         """Metodo para calcular el recall de una lista de documentos
@@ -85,16 +77,7 @@ class RIController:
             return 0
         return str(total/cant)
 
-    def crearListaConRelevancia(self,path):
-        self.mongodb.eliminarBdRelevancia()
-        archivo = open(path,"r")
-        for unaLinea in archivo.readlines():
-            if unaLinea:
-                campos = unaLinea.split("	,	")
-                url = self.preprocesamiento.limpiarUrl(campos[0])
-                relevancia = campos[1].split("\n")[0]
 
-                self.mongodb.crearDocumentoRelevancia(url,relevancia)
 
     def escribirRanking(self, path, lista):
         archivo = open(path, "wb")
@@ -202,7 +185,7 @@ class RIController:
 
     def crearRelacionesCRank(self,path):
         """Creacion de las relaciones de enlaces entrantes y salientes de los documentos Web"""
-        listaUrls = self.crank.lecturaArchivoCrank(path)
+        listaUrls = self.rc.lecturaArchivoCrank(path)
         for parUrls in listaUrls:
             self.crearDocumentosCrank(parUrls['source'],parUrls['target'])
             self.mongodb.crearRelaciones(parUrls['source'],parUrls['target'])
@@ -221,18 +204,18 @@ class RIController:
         """Inicializacion del metodo Crank
            Entrada: Consulta de busqueda, lista de urls a rankear, parametros de configuracion y el escenario a evaluar
                Metodo = EP -> para utilizar enfoque ponderado como calculo de relevancia
-               Metodo = CRank -> para utilizar el crank como calculo de relevancia
+               Metodo = CRank -> para utilizar el rc como calculo de relevancia
            Salida: Lista de urls rankeados """
 
-        #self.crearRelacionesCRank("Entrada/crank.txt")
+        #self.crearRelacionesCRank("Entrada/rc.txt")
         if metodo == "EP":
-            self.crank.calcularRelevancia(consulta,tema,listaUrls,parametrosCrank)
+            self.rc.calcularRelevancia(consulta,tema,listaUrls,parametrosCrank)
         elif metodo == "Crank":
-            self.crank.calcularRelevanciaCrank(consulta,listaUrls,tema)
+            self.rc.calcularRelevanciaCrank(consulta,listaUrls,tema)
 
-        self.crank.calcularScoreContribucion(listaUrls,parametrosCrank = parametrosCrank)
+        self.rc.calcularScoreContribucion(listaUrls,parametrosCrank = parametrosCrank)
 
-        listaRankeada = self.crank.calcularPuntajeFinal(listaUrls,consulta,parametro=parametrosCrank)
+        listaRankeada = self.rc.calcularPuntajeFinal(listaUrls,parametro=parametrosCrank)
         return listaRankeada
 
 
@@ -268,7 +251,7 @@ class RIController:
         #self.initSVM('Entrada/svmEntrenamiento.txt')
 
         #Crear lista de documentos con relevancia
-        self.crearListaConRelevancia('Entrada/listaRelevancia'+tema+'.txt')
+        self.preprocesamiento.crearListaConRelevancia('Entrada/listaRelevancia'+tema+'.txt')
 
         listaSVMs = []
         listasContribucion = []
@@ -279,9 +262,11 @@ class RIController:
 
             consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
             """ranking svm"""
-            #listaSvm = self.rankingSVM(listaUrls,consulta,parametros)
-            #listaSVMs.append(listaSvm)
+
+            listaSvm = self.svm.rankingSVM(listaUrls,consulta,parametros)
+            listaSVMs.append(listaSvm)
             """ranking contribucion"""
+
             listaContribucion = self.initCrank("EP",consulta.name,listaUrls,parametrosCrank,tema)
             listasContribucion.append(listaContribucion)
 
@@ -289,9 +274,9 @@ class RIController:
         listaFinal = self.rankingFinal(listaSVMs,listasContribucion)
 
         """evaluacion del rendimiento de los algoritmos"""
-        #self.evaluarMetodos(listaSVMs, "svm")
+        self.evaluarMetodos(listaSVMs, "svm")
         self.evaluarMetodos(listasContribucion, "Contribucion")
-        #self.evaluarMetodos(listaFinal,"Ranking Final")
+        self.evaluarMetodos(listaFinal,"Ranking Final")
 
         #self.imprimirListaTop10(listaSVMs, "RSVM")
         #self.imprimirListaTop10(listasContribucion, "Contribucion")
@@ -345,12 +330,12 @@ class RIController:
             precision.append(precisionRecall[-1][0])
         return precision
 
-    def metodosAlternativos(self,tema):
+    def metodosAlternativos(self,tema,parametrosCrank):
         """Metodo para rankear con los algoritmo EP, C-Rank y VSM"""
         consultas = self.getConsultasTema(tema)
 
         # Crear lista de documentos con relevancia
-        self.crearListaConRelevancia('Entrada/listaRelevancia'+tema+'.txt')
+        self.preprocesamiento.crearListaConRelevancia('Entrada/listaRelevancia'+tema+'.txt')
         listaUrls = self.preprocesamiento.leerArchivoUrl("Entrada/urls"+tema+".txt")
 
         VSM = []
@@ -361,7 +346,7 @@ class RIController:
             consulta = self.preprocesamiento.crearDocumentoPattern(consulta, consulta)
             VSM.append(self.rankingVectorSpaceModel(listaUrls,consulta))
             EP.append(self.enfoquePonderado(listaUrls,consulta,tema))
-            CRANK.append(self.calcularCrankOriginal(listaUrls,consulta))
+            CRANK.append(self.calcularCrankOriginal(listaUrls,consulta,parametrosCrank))
 
 
         self.evaluarMetodos(VSM,"VSM")
@@ -430,23 +415,25 @@ class RIController:
 
         unModelo = Model(listaModel,weight=TFIDF)
         for unDocumento in unModelo:
-            score = self.preprocesamiento.calcularVectorSpaceModel(consulta,unDocumento)
+            score = self.svm.calcularVectorSpaceModel(consulta,unDocumento)
             listaUrlsRankeados.append(self.crearJsonRanking(unDocumento.name,score))
 
         listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=False)
 
         return listaFinal
 
+
+
     def enfoquePonderado(self, listaUrls, consulta, tema = "ISP"):
         """Metodo para el ranking del enfoque ponderado
         Entrada: Lista de urls y consulta en cadena de caracteres"""
         listaUrlsRankeados = []
-        diccionario = self.crank.getDiccionarioDominio(tema)
+        diccionario = self.rc.getDiccionarioDominio(tema)
         for url in listaUrls:
             documento = self.mongodb.getDocumento(url)
             if documento:
                 documentoPattern = self.preprocesamiento.getDocumentoPattern(documento['_id'])
-                score = self.crank.calcularEnfoquePonderado(documentoPattern,consulta,diccionario, {"AN":0.5,"AP":0.75,"AC":1})
+                score = self.rc.calcularEnfoquePonderado(documentoPattern,consulta,diccionario, {"AN":0.5,"AP":0.75,"AC":1})
                 listaUrlsRankeados.append(self.crearJsonRanking(url,score))
 
         listaFinal = sorted(listaUrlsRankeados, key=lambda k: k['score'], reverse=True)
@@ -466,9 +453,9 @@ class RIController:
         Salida: Lista de urls rankeados
         """
         listaUrlsRankeados = []
-        self.crank.calcularRelevanciaCrank(consulta,listaUrls)
-        self.crank.calcularScoreContribucion(listaUrls,"relevanciaCrank",parametrosCrank={"niveles":3,"factorContribucion":0.2})
-        self.crank.calcularPuntajeFinal(listaUrls,consulta,parametro={"niveles":3,"factorContribucion":0.2})
+        self.rc.calcularRelevanciaCrank(consulta,listaUrls)
+        self.rc.calcularScoreContribucion(listaUrls,"relevanciaCrank",parametrosCrank={"niveles":3,"factorContribucion":0.2})
+        self.rc.calcularPuntajeFinal(listaUrls,parametro={"niveles":3,"factorContribucion":0.2})
 
         for url in listaUrls:
             documento = self.mongodb.getDocumento(url)
@@ -554,7 +541,7 @@ class RIController:
         consultas = self.getConsultasTema(tema,"secundario")
 
         # Crear lista de documentos con relevancia
-        self.crearListaConRelevancia('Secundario/listaRelevancia' + tema + '.txt')
+        self.preprocesamiento.crearListaConRelevancia('Secundario/listaRelevancia' + tema + '.txt')
         listaUrls = self.preprocesamiento.leerArchivoUrl("Secundario/urls" + tema + ".txt")
 
         EP = []
@@ -697,52 +684,4 @@ class RIController:
         joblib.dump(svm.instanciaSVM, 'Model/SVM/' + name + '.pkl')
 
 
-    def rankingSVM(self, listaUrls, consulta, parametros):
-        """ metodo para rankear una lista de urls mediante el algoritmo RSVM
-            Entrada:
-                listaUrls: lista de los urls para rankear
-                consulta: consulta de busqueda en cadena de caracteres
-                parametros: parametros
-            Salida:
-                lista de urls rankeados
-        """
 
-        self.preprocesamiento.lecturaSVMRanking(listaUrls, consulta)
-
-        """ creacion de atributos para cada enlace"""
-        listaUrls = self.svmRelevante.setearAtributosRanking(listaUrls, consulta)
-
-        """se obtiene los puntos para realizar el ranking"""
-        puntos = self.svmRelevante.getAtributosRanking(listaUrls, consulta.name)
-        X = np.array(puntos['X'])
-
-        svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
-        svmRelevante = joblib.load('Model/SVM/relevante.pkl')
-        svmMuyrelevante = joblib.load('Model/SVM/muyrelevante.pkl')
-
-        prediccionesNoRelevante = svmNorelevante.predict(X)
-        prediccionesRelevante = svmRelevante.predict(X)
-        prediccionesMuyRelevante = svmMuyrelevante.predict(X)
-
-        listaUrls = self.limpiarListaUrls(listaUrls, puntos['name'])
-        ranking = []
-
-        modeloLista = []
-        for url in listaUrls:
-            documento = self.mongodb.getDocumento(url)
-            if documento:
-                documentoPattern = self.preprocesamiento.getDocumentoPattern(documento['_id'])
-                modeloLista.append(documentoPattern)
-
-        unModelo = Model(modeloLista)
-
-        """calculo del puntaje de ranking SVM"""
-        for indice, doc in enumerate(unModelo):
-            url = doc.name
-            documento = {}
-            documento['url'] = url
-            documento['score'] = (1-self.preprocesamiento.obtenerVectorSpaceModel(doc,consulta)) + (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * parametros[1] + prediccionesMuyRelevante[indice] * parametros[2])
-            ranking.append(documento)
-
-        listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
-        return listaNueva

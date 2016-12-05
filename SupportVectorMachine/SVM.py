@@ -1,6 +1,7 @@
-from Model.mongodb import *
+from sklearn.externals import joblib
+
 from preprocesamientoController import *
-from pattern.vector import Document,Model
+from pattern.vector import Document,Model, distance, COSINE
 from Atributos import *
 import re
 import numpy as np
@@ -277,3 +278,65 @@ class SVM:
         puntos['X'] = X
         puntos['name'] = name
         return puntos
+
+
+    def rankingSVM(self, listaUrls, consulta, parametros):
+        """ metodo para rankear una lista de urls mediante el algoritmo RSVM
+            Entrada:
+                listaUrls: lista de los urls para rankear
+                consulta: consulta de busqueda en cadena de caracteres
+                parametros: parametros
+            Salida:
+                lista de urls rankeados
+        """
+
+        self.preprocesamiento.lecturaSVMRanking(listaUrls, consulta)
+
+        """ creacion de atributos para cada enlace"""
+        listaUrls = self.setearAtributosRanking(listaUrls, consulta)
+
+        """se obtiene los puntos para realizar el ranking"""
+        puntos = self.getAtributosRanking(listaUrls, consulta.name)
+        X = np.array(puntos['X'])
+
+        svmNorelevante = joblib.load('Model/SVM/norelevante.pkl')
+        svmRelevante = joblib.load('Model/SVM/relevante.pkl')
+        svmMuyrelevante = joblib.load('Model/SVM/muyrelevante.pkl')
+
+        prediccionesNoRelevante = svmNorelevante.predict(X)
+        prediccionesRelevante = svmRelevante.predict(X)
+        prediccionesMuyRelevante = svmMuyrelevante.predict(X)
+
+        listaUrls = self.preprocesamiento.limpiarListaUrls(listaUrls, puntos['name'])
+        ranking = []
+
+        modeloLista = []
+        for url in listaUrls:
+            documento = self.mongodb.getDocumento(url)
+            if documento:
+                documentoPattern = self.preprocesamiento.getDocumentoPattern(documento['_id'])
+                modeloLista.append(documentoPattern)
+
+        unModelo = Model(modeloLista)
+
+        """calculo del puntaje de ranking SVM"""
+        for indice, doc in enumerate(unModelo):
+            url = doc.name
+            documento = {}
+            documento['url'] = url
+            documento['score'] = (1-self.obtenerVectorSpaceModel(doc,consulta)) + (prediccionesNoRelevante[indice] + prediccionesRelevante[indice] * parametros[1] + prediccionesMuyRelevante[indice] * parametros[2])
+            ranking.append(documento)
+
+        listaNueva = sorted(ranking, key=lambda k: k['score'], reverse=True)
+        return listaNueva
+
+    def obtenerVectorSpaceModel(self, url,consulta):
+        docBD = self.mongodb.getDocumento(url.name)
+        documento = self.preprocesamiento.getDocumentoPattern(docBD['_id'])
+        consulta = self.preprocesamiento.crearDocumentoPattern(consulta,consulta)
+        if docBD and documento:
+            return self.calcularVectorSpaceModel(documento,consulta)
+        return 1
+
+    def calcularVectorSpaceModel(self, doc1, doc2):
+        return distance(doc1.vector,doc2.vector,method=COSINE)

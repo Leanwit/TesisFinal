@@ -1,7 +1,7 @@
 from preprocesamientoController import *
 from Model.mongodb import *
 import copy
-class Crank:
+class RC:
     preprocesamiento = preprocesamientoController()
     mongodb = MongoDb()
     def __init__(self):
@@ -73,9 +73,9 @@ class Crank:
                 else:
                     aciertoNegativo += frecuencia
 
+
         if aciertoClave + aciertoPositivo + aciertoNegativo:
-            puntajeFinal = float(aciertoClave * float(parametrosCrank['AC']) + aciertoPositivo * float(parametrosCrank['AP']) + aciertoNegativo * float(parametrosCrank['AN'])) / float(
-                aciertoClave + aciertoPositivo + aciertoNegativo)
+            puntajeFinal = float(aciertoClave * float(parametrosCrank['AC']) + aciertoPositivo * float(parametrosCrank['AP']) + aciertoNegativo * float(parametrosCrank['AN'])) / float(aciertoClave + aciertoPositivo + aciertoNegativo)
         else:
             puntajeFinal = 0
         return puntajeFinal

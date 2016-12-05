@@ -13,10 +13,12 @@ BGP : Dual Home BGP
 '''
 
 
-tema = "Tree"
+tema = ""
 controladorRI = RIController()
-parametrosCrank = 0.2
+parametrosRC = {"niveles": 5, "AC": 1, "AP": 0.3, "AN": 0.1, "factorContribucion": 0.1}
 parametrosSVM = [1,2,3]
-controladorRI.iniciarRanking(parametrosSVM,parametrosCrank,tema)
-controladorRI.metodosAlternativos(tema)
+controladorRI.iniciarRanking(parametrosSVM,parametrosRC,tema)
 
+parametrosCrank = {"niveles": 3, "AC": 1, "AP": 0.75, "AN": 0.5, "factorContribucion": 0.2}
+
+controladorRI.metodosAlternativos(tema,parametrosCrank)
