@@ -1,5 +1,5 @@
-from SupportVectorMachine.SVM import *
-from RankingContribucion.Crank import *
+from SupportVectorMachine.RSVM import *
+from RankingContribucion.RC import *
 from preprocesamientoController import *
 import numpy as np
 from sklearn.externals import joblib
