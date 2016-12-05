@@ -11,7 +11,7 @@
 * [PyPDF] (https://pypi.python.org/pypi/pyPdf/1.13)
 
 
-##Proyecto VTeIC - UGD (Posadas, Misioens) y UNT- FRRe (Resistencia, Chaco)
+##Proyecto VTeIC - UGD (Posadas, Misiones) y UTN- FRRe (Resistencia, Chaco)
 El presente proyecto corresponde al modulo "Algoritmos de Recuperación de Información" del diagrama presentado a continuación.
 
 
